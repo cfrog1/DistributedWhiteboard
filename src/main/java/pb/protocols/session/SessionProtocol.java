@@ -8,6 +8,7 @@ import pb.Manager;
 import pb.protocols.Message;
 import pb.protocols.Protocol;
 import pb.protocols.IRequestReplyProtocol;
+import pb.Utils;
 
 /**
  * Allows the client to request the session to start and to request the session
@@ -112,6 +113,8 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	@Override
 	public void sendRequest(Message msg) throws EndpointUnavailable {
 		endpoint.send(msg);
+		// Start 20 second timer after sending message
+	    Utils.getInstance().setTimeout(()->{manager.endpointTimedOut(endpoint,this);},20000);
 	}
 
 	/**
@@ -123,6 +126,8 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	 */
 	@Override
 	public void receiveReply(Message msg) {
+		// Since message is reply message received, stop timer 
+		Utils.getInstance().cleanUp();
 		if(msg instanceof SessionStartReply) {
 			if(protocolRunning){
 				// error, received a second reply?
