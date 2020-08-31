@@ -120,8 +120,8 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
                     manager.endpointTimedOut(endpoint, this);
                 } else {
                     // Server replied so we can send another request to the server
-                    sendRequest(new KeepAliveRequest());
                     recievedReply = false;
+                    sendRequest(new KeepAliveRequest());
                 }
             } catch (EndpointUnavailable e) {
                 log.severe("endpoint unavailable");
