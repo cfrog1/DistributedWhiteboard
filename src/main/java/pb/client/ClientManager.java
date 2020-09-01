@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.concurrent.CountDownLatch;
 import java.util.logging.Logger;
 
 import pb.Endpoint;
@@ -16,6 +17,7 @@ import pb.protocols.IRequestReplyProtocol;
 import pb.protocols.Protocol;
 import pb.protocols.keepalive.KeepAliveProtocol;
 import pb.protocols.session.SessionProtocol;
+import pb.server.IOThread;
 
 /**
  * Manages the connection to the server and the client's state.
@@ -35,11 +37,12 @@ public class ClientManager extends Manager {
 	private String host;
 	private int port;
 	private int retries = 0;
-	
+
 	public ClientManager(String host,int port) throws UnknownHostException, IOException {
 		this.host = host;
 		this.port = port;
 
+		CountDownLatch countDownLatch = new CountDownLatch(10);
 		try {
 			socket = new Socket(InetAddress.getByName(host), port);
 			log.info("Socket connected successfully");
@@ -48,10 +51,21 @@ public class ClientManager extends Manager {
 			e.printStackTrace();
 		} catch (Exception e) {
 			log.severe("Socket not connected, attempting to re-establish");
-			reestablishConnection();
+			reestablishConnection(countDownLatch);
+		}
+		try {
+			countDownLatch.await();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 
-		//If reestablishconnection fails, end program. No endpoint has been created so no
+//		while (restablishingConnection) {
+//			// do nothing
+//		}
+
+
+
+		//If reestablish connection fails, end program. No endpoint has been created so no
 		//need to close it down.
 		if (socket == null) {
 			System.exit(-1);
@@ -87,34 +101,28 @@ public class ClientManager extends Manager {
 	 * Success resets the global retries and breaks from the loop.
 	 * Failure to connect sleeps the thread for 5 seconds before trying again.
 	 */
-	public void reestablishConnection() {
-
-		while (retries < 10) {
-			retries++;
-			log.info(String.format("Re-establishing connection, attempt %d/10", retries));
-
-			try {
-				socket = new Socket(InetAddress.getByName(host), port);
-				retries = 0;
-				log.info("Connection established successfully");
-				break;
-
-			} catch (Exception e) {
-
-				try{
-					Thread.sleep(2000);
-				} catch (InterruptedException interruptedException) {
-					interruptedException.printStackTrace();
-					break;
-				}
-
+	public void reestablishConnection(CountDownLatch countDownLatch) {
+		try {
+			socket = new Socket(InetAddress.getByName(host), port);
+			log.info("Connection established successfully");
+			while (countDownLatch.getCount()!=0) {
+				countDownLatch.countDown();
 			}
+		} catch (Exception e) {
+			Utils.getInstance().setTimeout(() -> {
+				if (countDownLatch.getCount()==0) {
+					if (socket == null) {
+						log.info("Connection establishment failed");
+					}
+				} else {
+					log.info(String.format("Re-establishing connection, attempt %d/10", 10 - countDownLatch.getCount()));
+					countDownLatch.countDown();
+					reestablishConnection(countDownLatch);
+				}
+			}, 2000);
 		}
-		if (socket == null) {
-			log.info("Connection establishment failed");
-		}
-
 	}
+
 
 
 	/**
@@ -132,7 +140,7 @@ public class ClientManager extends Manager {
 		} catch (EndpointUnavailable e) {
 			log.severe("connection with server terminated abruptly");
 			//Attempts to reestablish connection. If it fails, closes the endpoint.
-			reestablishConnection();
+			reestablishConnection(new CountDownLatch(10));
 			if (socket == null) {
 				endpoint.close();
 			}
@@ -148,7 +156,7 @@ public class ClientManager extends Manager {
 		} catch (EndpointUnavailable e) {
 			log.severe("connection with server terminated abruptly");
 			//Attempts to reestablish connection. If it fails, closes the endpoint.
-			reestablishConnection();
+			reestablishConnection(new CountDownLatch(10));
 			if (socket == null) {
 				endpoint.close();
 			}
@@ -175,7 +183,7 @@ public class ClientManager extends Manager {
 	public void endpointDisconnectedAbruptly(Endpoint endpoint) {
 		log.severe("connection with server terminated abruptly");
 		//Attempts to reestablish connection. If it fails, closes the endpoint.
-		reestablishConnection();
+		reestablishConnection(new CountDownLatch(10));
 		if (socket == null) {
 			endpoint.close();
 		}
