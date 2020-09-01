@@ -32,10 +32,31 @@ public class ClientManager extends Manager {
 	private SessionProtocol sessionProtocol;
 	private KeepAliveProtocol keepAliveProtocol;
 	private Socket socket;
+	private String host;
+	private int port;
+	private int retries = 0;
 	
 	public ClientManager(String host,int port) throws UnknownHostException, IOException {
-		
-		socket=new Socket(InetAddress.getByName(host),port);
+		this.host = host;
+		this.port = port;
+
+		try {
+			socket = new Socket(InetAddress.getByName(host), port);
+			log.info("Socket connected successfully");
+		} catch (UnknownHostException e) {
+			log.severe("Host unknown, socket not connected");
+			e.printStackTrace();
+		} catch (Exception e) {
+			log.severe("Socket not connected, attempting to re-establish");
+			reestablishConnection();
+		}
+
+		//If reestablishconnection fails, end program. No endpoint has been created so no
+		//need to close it down.
+		if (socket == null) {
+			System.exit(-1);
+		}
+
 		Endpoint endpoint = new Endpoint(socket,this);
 		endpoint.start();
 		
@@ -61,7 +82,41 @@ public class ClientManager extends Manager {
 		
 		Utils.getInstance().cleanUp();
 	}
-	
+	/**
+	 * Ten attempts are made to create the socket with the same host and port.
+	 * Success resets the global retries and breaks from the loop.
+	 * Failure to connect sleeps the thread for 5 seconds before trying again.
+	 */
+	public void reestablishConnection() {
+
+		while (retries < 10) {
+			retries++;
+			log.info(String.format("Re-establishing connection, attempt %d/10", retries));
+
+			try {
+				socket = new Socket(InetAddress.getByName(host), port);
+				retries = 0;
+				log.info("Connection established successfully");
+				break;
+
+			} catch (Exception e) {
+
+				try{
+					Thread.sleep(2000);
+				} catch (InterruptedException interruptedException) {
+					interruptedException.printStackTrace();
+					break;
+				}
+
+			}
+		}
+		if (socket == null) {
+			log.info("Connection establishment failed");
+		}
+
+	}
+
+
 	/**
 	 * The endpoint is ready to use.
 	 * @param endpoint
@@ -76,7 +131,11 @@ public class ClientManager extends Manager {
 			sessionProtocol.startAsClient();
 		} catch (EndpointUnavailable e) {
 			log.severe("connection with server terminated abruptly");
-			endpoint.close();
+			//Attempts to reestablish connection. If it fails, closes the endpoint.
+			reestablishConnection();
+			if (socket == null) {
+				endpoint.close();
+			}
 		} catch (ProtocolAlreadyRunning e) {
 			// hmmm, so the server is requesting a session start?
 			log.warning("server initiated the session protocol... weird");
@@ -88,7 +147,11 @@ public class ClientManager extends Manager {
 			keepAliveProtocol.startAsClient();
 		} catch (EndpointUnavailable e) {
 			log.severe("connection with server terminated abruptly");
-			endpoint.close();
+			//Attempts to reestablish connection. If it fails, closes the endpoint.
+			reestablishConnection();
+			if (socket == null) {
+				endpoint.close();
+			}
 		} catch (ProtocolAlreadyRunning e) {
 			// hmmm, so the server is requesting a session start?
 			log.warning("server initiated the session protocol... weird");
@@ -111,7 +174,11 @@ public class ClientManager extends Manager {
 	@Override
 	public void endpointDisconnectedAbruptly(Endpoint endpoint) {
 		log.severe("connection with server terminated abruptly");
-		endpoint.close();
+		//Attempts to reestablish connection. If it fails, closes the endpoint.
+		reestablishConnection();
+		if (socket == null) {
+			endpoint.close();
+		}
 	}
 
 	/**
