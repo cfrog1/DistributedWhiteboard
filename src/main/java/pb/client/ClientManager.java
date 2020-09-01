@@ -42,7 +42,6 @@ public class ClientManager extends Manager {
 		this.host = host;
 		this.port = port;
 
-		CountDownLatch countDownLatch = new CountDownLatch(10);
 		try {
 			socket = new Socket(InetAddress.getByName(host), port);
 			log.info("Socket connected successfully");
@@ -51,19 +50,14 @@ public class ClientManager extends Manager {
 			e.printStackTrace();
 		} catch (Exception e) {
 			log.severe("Socket not connected, attempting to re-establish");
+			CountDownLatch countDownLatch = new CountDownLatch(10);
 			reestablishConnection(countDownLatch);
+			try {
+				countDownLatch.await();
+			} catch (InterruptedException ex) {
+				e.printStackTrace();
+			}
 		}
-		try {
-			countDownLatch.await();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-
-//		while (restablishingConnection) {
-//			// do nothing
-//		}
-
-
 
 		//If reestablish connection fails, end program. No endpoint has been created so no
 		//need to close it down.
@@ -140,7 +134,13 @@ public class ClientManager extends Manager {
 		} catch (EndpointUnavailable e) {
 			log.severe("connection with server terminated abruptly");
 			//Attempts to reestablish connection. If it fails, closes the endpoint.
-			reestablishConnection(new CountDownLatch(10));
+			CountDownLatch countDownLatch = new CountDownLatch(10);
+			reestablishConnection(countDownLatch);
+			try {
+				countDownLatch.await();
+			} catch (InterruptedException ex) {
+				ex.printStackTrace();
+			}
 			if (socket == null) {
 				endpoint.close();
 			}
@@ -156,7 +156,13 @@ public class ClientManager extends Manager {
 		} catch (EndpointUnavailable e) {
 			log.severe("connection with server terminated abruptly");
 			//Attempts to reestablish connection. If it fails, closes the endpoint.
-			reestablishConnection(new CountDownLatch(10));
+			CountDownLatch countDownLatch = new CountDownLatch(10);
+			reestablishConnection(countDownLatch);
+			try {
+				countDownLatch.await();
+			} catch (InterruptedException ex) {
+				ex.printStackTrace();
+			}
 			if (socket == null) {
 				endpoint.close();
 			}
@@ -183,7 +189,13 @@ public class ClientManager extends Manager {
 	public void endpointDisconnectedAbruptly(Endpoint endpoint) {
 		log.severe("connection with server terminated abruptly");
 		//Attempts to reestablish connection. If it fails, closes the endpoint.
-		reestablishConnection(new CountDownLatch(10));
+		CountDownLatch countDownLatch = new CountDownLatch(10);
+		reestablishConnection(countDownLatch);
+		try {
+			countDownLatch.await();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		if (socket == null) {
 			endpoint.close();
 		}
