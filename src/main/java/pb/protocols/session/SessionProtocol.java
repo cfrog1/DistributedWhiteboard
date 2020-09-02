@@ -34,6 +34,10 @@ import pb.Utils;
 public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	private static Logger log = Logger.getLogger(SessionProtocol.class.getName());
 	
+	private static int TIMEOUT_LIMIT = 20000;
+	
+	// Flag to check for timeouts 
+	private boolean timeoutFlag = false;
 	/**
 	 * The unique name of the protocol.
 	 */
@@ -55,6 +59,15 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	 */
 	public SessionProtocol(Endpoint endpoint, Manager manager) {
 		super(endpoint,manager);
+	}
+
+	/*
+	 * Check if timeout flag has been set and call manager
+	 */
+	public void check_timeout() {
+		if(this.timeoutFlag == true) {
+			manager.endpointTimedOut(endpoint,this);
+		}
 	}
 	
 	/**
@@ -113,8 +126,9 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	@Override
 	public void sendRequest(Message msg) throws EndpointUnavailable {
 		endpoint.send(msg);
-		// Start 20 second timer after sending message
-	    Utils.getInstance().setTimeout(()->{manager.endpointTimedOut(endpoint,this);},20000);
+		// Set timeout flag and start 20 second timer after sending message
+		this.timeoutFlag = true;
+	    Utils.getInstance().setTimeout(()->{check_timeout();},TIMEOUT_LIMIT);
 	}
 
 	/**
@@ -126,8 +140,8 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	 */
 	@Override
 	public void receiveReply(Message msg) {
-		// Since message is reply message received, stop timer 
-		Utils.getInstance().cleanUp();
+		// Set flag to false since message has been received
+		this.timeoutFlag = false;
 		if(msg instanceof SessionStartReply) {
 			if(protocolRunning){
 				// error, received a second reply?
@@ -135,7 +149,6 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 				return;
 			}
 			protocolRunning=true;
-			manager.sessionStarted(endpoint);
 		} else if(msg instanceof SessionStopReply) {
 			if(!protocolRunning) {
 				// error, received a second reply?
