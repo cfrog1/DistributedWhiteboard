@@ -149,6 +149,7 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 				return;
 			}
 			protocolRunning=true;
+			manager.sessionStarted(endpoint);
 		} else if(msg instanceof SessionStopReply) {
 			if(!protocolRunning) {
 				// error, received a second reply?
