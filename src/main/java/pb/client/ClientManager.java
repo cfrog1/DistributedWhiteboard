@@ -36,7 +36,6 @@ public class ClientManager extends Manager {
 	private Socket socket;
 	private String host;
 	private int port;
-	private int retries = 0;
 
 	public ClientManager(String host,int port) throws UnknownHostException, IOException {
 		this.host = host;
@@ -113,7 +112,7 @@ public class ClientManager extends Manager {
 					countDownLatch.countDown();
 					reestablishConnection(countDownLatch);
 				}
-			}, 2000);
+			}, 5000);
 		}
 	}
 
