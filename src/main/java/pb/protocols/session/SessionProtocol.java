@@ -37,7 +37,7 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	private static int TIMEOUT_LIMIT = 20000;
 	
 	// Flag to check for timeouts 
-	private boolean timeoutFlag = false;
+	private volatile boolean timeoutFlag = false;
 	/**
 	 * The unique name of the protocol.
 	 */
@@ -65,7 +65,7 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	 * Check if timeout flag has been set and call manager
 	 */
 	public void check_timeout() {
-		if(this.timeoutFlag == true) {
+		if(timeoutFlag == true) {
 			manager.endpointTimedOut(endpoint,this);
 		}
 	}
@@ -127,7 +127,7 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	public void sendRequest(Message msg) throws EndpointUnavailable {
 		endpoint.send(msg);
 		// Set timeout flag and start 20 second timer after sending message
-		this.timeoutFlag = true;
+		timeoutFlag = true;
 	    Utils.getInstance().setTimeout(()->{check_timeout();},TIMEOUT_LIMIT);
 	}
 
@@ -141,7 +141,7 @@ public class SessionProtocol extends Protocol implements IRequestReplyProtocol {
 	@Override
 	public void receiveReply(Message msg) {
 		// Set flag to false since message has been received
-		this.timeoutFlag = false;
+		timeoutFlag = false;
 		if(msg instanceof SessionStartReply) {
 			if(protocolRunning){
 				// error, received a second reply?
