@@ -12,6 +12,7 @@ import pb.Utils;
 import pb.protocols.IRequestReplyProtocol;
 import pb.protocols.Protocol;
 import pb.protocols.keepalive.KeepAliveProtocol;
+import pb.protocols.session.SessionProtocol;;
 
 /**
  * Manages all of the clients for the server and the server's state.
@@ -91,18 +92,26 @@ public class ServerManager extends Manager {
 	 */
 	@Override
 	public void endpointReady(Endpoint endpoint) {
-		KeepAliveProtocol protocol = new KeepAliveProtocol(endpoint,this);
-		try {
-			// we need to add it to the endpoint before starting it
-			endpoint.handleProtocol(protocol);
-			protocol.startAsServer();
-		} catch (ProtocolAlreadyRunning e) {
-			// hmmm... already requested by the client
-		}
-		synchronized(numLiveClients) {
-			numLiveClients++;
-		}
-	}
+		  KeepAliveProtocol keepAliveProtocol = new KeepAliveProtocol(endpoint,this);
+		  try {
+		   // we need to add it to the endpoint before starting it
+		   endpoint.handleProtocol(keepAliveProtocol);
+		   keepAliveProtocol.startAsServer();
+		  } catch (ProtocolAlreadyRunning e) {
+		   // hmmm... already requested by the client
+		  }
+		  SessionProtocol sessionProtocol = new SessionProtocol(endpoint,this);
+		  try {
+		   endpoint.handleProtocol(sessionProtocol);
+		   sessionProtocol.startAsServer();
+		  } catch (ProtocolAlreadyRunning e) {
+		   // hmmm... already started by the client
+		  }
+		  synchronized(numLiveClients) {
+		   numLiveClients++;
+		  }
+		 }
+
 	
 	/**
 	 * The endpoint close() method has been called and completed.
