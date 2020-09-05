@@ -34,34 +34,42 @@ public class ClientManager extends Manager {
 	private Socket socket;
 	private String host;
 	private int port;
-	private volatile boolean notConnected = true;
-	private volatile boolean isTrying = false;
+	private volatile boolean isReestablishing = false;
+	private volatile boolean hasFailed = false;
+	private volatile boolean isConnected = false;
 	private int counter = 0;
 
 	public ClientManager(String host,int port) throws UnknownHostException, IOException {
-		while (notConnected) {
+		while (!hasFailed) {
 			this.host = host;
 			this.port = port;
-
+			if (hasFailed) {
+				break;
+			}
 			try {
-				if (!isTrying && notConnected) {
+				// if we havent failed and we are not currently connected then make a new socket for the connection
+				if (!hasFailed && !isReestablishing) {
 					socket = new Socket(InetAddress.getByName(host), port);
 					log.info("Socket connected successfully");
+					isConnected = true;
 				}
 			} catch (UnknownHostException e) {
 				log.severe("Host unknown, socket not connected");
 				e.printStackTrace();
 			} catch (Exception e) {
-//				log.severe("Socket not connected, attempting to re-establish");
-				if (!isTrying && notConnected) {
-					isTrying = true;
+
+				// If we end up here then the socket failed to connect, so try to reestablish a connection if we are not already trying to do so...
+				if (!hasFailed && !isReestablishing && !isConnected) {
+
+					// flag that we are attempting to reestablish a connection
+					isReestablishing = true;
 					reestablishConnection();
 				}
 			}
 			if (socket != null) {
+				// If the socket is not null that we can make the endpoint
 				Endpoint endpoint = new Endpoint(socket, this);
 				endpoint.start();
-
 				try {
 					// just wait for this thread to terminate
 					endpoint.join();
@@ -71,9 +79,13 @@ public class ClientManager extends Manager {
 				}
 			}
 		}
+
+		// We have failed to establish a connection so exit.
+		log.severe("failed to establish a connection after 10 attempts");
 		Utils.getInstance().cleanUp();
 		System.exit(-1);
 	}
+
 	/**
 	 * Ten attempts are made to create the socket with the same host and port.
 	 * Success resets the global retries and breaks from the loop.
@@ -83,18 +95,25 @@ public class ClientManager extends Manager {
 		try {
 			socket = new Socket(InetAddress.getByName(host), port);
 			log.info("Connection established successfully");
-			notConnected = false;
-			isTrying = false;
+
+			// We make a connection so stop trying to reestablish a connection
+			isReestablishing = false;
+			hasFailed = false;
+			isConnected = true;
+			counter = 0;
 		} catch (Exception e) {
 			Utils.getInstance().setTimeout(() -> {
 				if (counter==10) {
-					if (socket == null) {
-						isTrying = false;
-						notConnected = false;
-						log.info("Connection establishment failed");
+					if (socket == null || socket.isClosed()) {
+
+						// At this point we have failed to make a connection after all attempts
+						hasFailed = true;
+						isReestablishing = false;
 					}
 				} else {
 					log.info(String.format("Re-establishing connection, attempt %d/10", counter));
+
+					// We failed, so increment the counter and try again after the delay.
 					counter++;
 					reestablishConnection();
 				}
@@ -144,7 +163,9 @@ public class ClientManager extends Manager {
 	 * @param endpoint
 	 */
 	public void endpointClosed(Endpoint endpoint) {
-		log.info("connection with server terminated");
+//		log.info("connection with server terminated");
+
+
 	}
 	
 	/**
@@ -154,8 +175,9 @@ public class ClientManager extends Manager {
 	 */
 	@Override
 	public void endpointDisconnectedAbruptly(Endpoint endpoint) {
-		log.severe("connection with server terminated abruptly");
+//		log.severe("connection with server terminated abruptly");
 		//Attempts to reestablish connection. If it fails, closes the endpoint.
+		isConnected = false;
 		endpoint.close();
 	}
 
