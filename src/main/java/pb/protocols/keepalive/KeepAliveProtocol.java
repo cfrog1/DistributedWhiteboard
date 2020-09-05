@@ -67,7 +67,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     }
 
     /**
-     * If the protocol is stopped, then it reports this to the logger
+     * If the protocol is stopped, then it reports this to the logger.
      */
     @Override
     public void stopProtocol() {
