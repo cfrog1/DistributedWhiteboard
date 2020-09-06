@@ -122,7 +122,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     public void sendRequest(Message msg) throws EndpointUnavailable {
         // Send the message to the server
         if (!isStopped) {
-//            endpoint.send(msg);
+            endpoint.send(msg);
             Utils.getInstance().setTimeout(() -> {
                 try {
                     // if the client hasn't received a reply from the server then report to manager
