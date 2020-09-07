@@ -47,10 +47,13 @@ public class ClientManager extends Manager {
 
 	}
 
-
+	/**
+	 * Attempts to connect socket and run an endpoint.
+	 * Failure to do so results in 10 attempts to reconnect.
+	 */
 	public void establishConnection() {
 		try {
-
+			//When socket connects successfully, reset retries, make sure reconnecting flag is false
 			socket = new Socket(InetAddress.getByName(host), port);
 			log.info("Socket connected successfully");
 			reconnecting = false;
@@ -66,6 +69,7 @@ public class ClientManager extends Manager {
 				endpoint.close();
 			}
 
+			//Only cleans up timers if there isn't a timer set for reestablishConnection
 			if (!reconnecting) {
 				Utils.getInstance().cleanUp();
 			}
@@ -75,6 +79,7 @@ public class ClientManager extends Manager {
 			e.printStackTrace();
 		} catch (IOException e) {
 			log.severe("Socket not connected, attempting to re-establish");
+			//Reconnecting flags the program to not clean up timers while attempting to reconnect.
 			reconnecting = true;
 			Utils.getInstance().setTimeout(() -> reestablishConnection(),5000);
 
@@ -84,8 +89,7 @@ public class ClientManager extends Manager {
 
 	/**
 	 * Ten attempts are made to create the socket with the same host and port.
-	 * Success resets the global retries and breaks from the loop.
-	 * Failure to connect sleeps the thread for 5 seconds before trying again.
+	 * Failure to connect cleans up timers and ends the program.
 	 */
 	public void reestablishConnection() {
 
@@ -100,8 +104,6 @@ public class ClientManager extends Manager {
 			Utils.getInstance().cleanUp();
 		}
 	}
-
-
 
 	/**
 	 * The endpoint is ready to use.
@@ -152,7 +154,7 @@ public class ClientManager extends Manager {
 	@Override
 	public void endpointDisconnectedAbruptly(Endpoint endpoint) {
 		log.severe("connection with server terminated abruptly");
-		//Closes the disconnected endpoint, then attempts to reconnect.
+		//Closes the disconnected endpoint, then begins reconnection process, trying 10 times.
 		endpoint.close();
 		reconnecting = true;
 		Utils.getInstance().setTimeout(() -> reestablishConnection(),5000);
