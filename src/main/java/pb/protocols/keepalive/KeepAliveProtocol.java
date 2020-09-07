@@ -96,6 +96,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     public void checkClientTimeout() {
         Utils.getInstance().setTimeout(() -> {
             if (!receivedRequest) {
+                log.warning("Keep alive request not received!");
                 manager.endpointTimedOut(endpoint, this);
             } else {
                 receivedRequest = false;
@@ -127,6 +128,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
                 try {
                     // if the client hasn't received a reply from the server then report to manager
                     if (!recievedReply) {
+                        log.warning("Keep alive reply not received!");
                         manager.endpointTimedOut(endpoint, this);
                     } else {
                         // Server replied so we can send another request to the server
