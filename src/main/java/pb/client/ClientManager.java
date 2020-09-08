@@ -61,6 +61,17 @@ public class ClientManager extends Manager {
 			Endpoint endpoint = new Endpoint(socket,this);
 			endpoint.start();
 
+			// simulate the client shutting down after 2mins
+			// this will be removed when the client actually does something
+			// controlled by the user
+			Utils.getInstance().setTimeout(()->{
+				try {
+					sessionProtocol.stopSession();
+				} catch (EndpointUnavailable e) {
+					//ignore...
+				}
+			}, 120000);
+
 			try {
 				// just wait for this thread to terminate
 				endpoint.join();
