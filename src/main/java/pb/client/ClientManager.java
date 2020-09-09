@@ -38,7 +38,7 @@ public class ClientManager extends Manager {
 	private String host;
 	private int port;
 	private int retries = 0;
-	private boolean reconnecting = false;
+	private volatile boolean reconnecting = false;
 
 	public ClientManager(String host,int port)  {
 		this.host = host;
@@ -92,7 +92,7 @@ public class ClientManager extends Manager {
 			log.severe("Socket not connected, attempting to re-establish");
 			//Reconnecting flags the program to not clean up timers while attempting to reconnect.
 			reconnecting = true;
-			Utils.getInstance().setTimeout(() -> reestablishConnection(),5000);
+			reestablishConnection();
 
 		}
 	}
@@ -103,12 +103,15 @@ public class ClientManager extends Manager {
 	 * Failure to connect cleans up timers and ends the program.
 	 */
 	public void reestablishConnection() {
-
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+			//do nothing
+		}
 		if (retries < 10) {
 			retries++;
 			log.info(String.format("Reestablishing connection attempt %d/10", retries));
 			establishConnection();
-
 		}
 		else {
 			log.info("Failed to reestablish connection");
@@ -168,7 +171,7 @@ public class ClientManager extends Manager {
 		//Closes the disconnected endpoint, then begins reconnection process, trying 10 times.
 		endpoint.close();
 		reconnecting = true;
-		Utils.getInstance().setTimeout(() -> reestablishConnection(),5000);
+		reestablishConnection();
 
 	}
 

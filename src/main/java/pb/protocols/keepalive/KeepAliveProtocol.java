@@ -41,6 +41,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     private static final int TWENTY_SECONDS = 20000;
     private volatile boolean receivedRequest = false;
     private volatile boolean recievedReply = false;
+    private volatile boolean isStopped = false;
 
 
     /**
@@ -72,6 +73,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     @Override
     public void stopProtocol() {
         log.info("keep alive protocol stopped");
+        isStopped = true;
     }
 
     /*
@@ -82,6 +84,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
      * To start as the server, we check to see if the client has sent a message after 20 seconds
      */
     public void startAsServer() {
+        isStopped = false;
         checkClientTimeout();
     }
 
@@ -93,6 +96,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     public void checkClientTimeout() {
         Utils.getInstance().setTimeout(() -> {
             if (!receivedRequest) {
+                log.warning("Keep alive request not received!");
                 manager.endpointTimedOut(endpoint, this);
             } else {
                 receivedRequest = false;
@@ -105,6 +109,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
      * To start as the client we send a KeepAliveRequest to the server. We need to send the request every 20 seconds.
      */
     public void startAsClient() throws EndpointUnavailable {
+        isStopped = false;
         sendRequest(new KeepAliveRequest());
     }
 
@@ -117,22 +122,25 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
     @Override
     public void sendRequest(Message msg) throws EndpointUnavailable {
         // Send the message to the server
-        endpoint.send(msg);
-        Utils.getInstance().setTimeout(() -> {
-            try {
-                // if the client hasn't received a reply from the server then report to manager
-                if (!recievedReply) {
-                    manager.endpointTimedOut(endpoint, this);
-                } else {
-                    // Server replied so we can send another request to the server
-                    recievedReply = false;
-                    sendRequest(new KeepAliveRequest());
+        if (!isStopped) {
+            endpoint.send(msg);
+            Utils.getInstance().setTimeout(() -> {
+                try {
+                    // if the client hasn't received a reply from the server then report to manager
+                    if (!recievedReply) {
+                        log.warning("Keep alive reply not received!");
+                        manager.endpointTimedOut(endpoint, this);
+                    } else {
+                        // Server replied so we can send another request to the server
+                        recievedReply = false;
+                        sendRequest(new KeepAliveRequest());
+                    }
+                } catch (EndpointUnavailable e) {
+                    log.severe("endpoint unavailable");
                 }
-            } catch (EndpointUnavailable e) {
-                log.severe("endpoint unavailable");
-            }
 
-        }, TWENTY_SECONDS);
+            }, TWENTY_SECONDS);
+        }
     }
 
     /**
@@ -141,7 +149,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
      */
     @Override
     public void receiveReply(Message msg) {
-        if (msg instanceof KeepAliveReply) {
+        if (!isStopped && msg instanceof KeepAliveReply) {
             recievedReply = true;
             // Nothing more to do
         }
@@ -155,7 +163,7 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
      */
     @Override
     public void receiveRequest(Message msg) throws EndpointUnavailable {
-        if (msg instanceof KeepAliveRequest) {
+        if (!isStopped && msg instanceof KeepAliveRequest) {
             // recognise that we have received a request and send a reply
             receivedRequest = true;
             sendReply(new KeepAliveReply());
@@ -168,6 +176,8 @@ public class KeepAliveProtocol extends Protocol implements IRequestReplyProtocol
      */
     @Override
     public void sendReply(Message msg) throws EndpointUnavailable {
-        endpoint.send(msg);
+        if (!isStopped) {
+            endpoint.send(msg);
+        }
     }
 }
