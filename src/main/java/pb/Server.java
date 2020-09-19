@@ -10,13 +10,14 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import pb.server.ServerManager;
+import pb.managers.ServerManager;
+import pb.utils.Utils;
 
 /**
  * Server main. Parse command line options and provide default values.
  * 
- * @see {@link pb.ServerManager}
- * @see {@link pb.Utils}
+ * @see {@link pb.managers.ServerManager}
+ * @see {@link pb.utils.Utils}
  * @author aaron
  *
  */
@@ -67,7 +68,18 @@ public class Server {
         
         // the server manager will start an io thread and this will prevent
         // the JVM from terminating
-        new ServerManager(port);
+        ServerManager serverManager = new ServerManager(port);
+        serverManager.start();
+        // The simple server does not do any application logic, but will
+        // (when you have implemented it in the ServerManager class)
+        // just continue to run until it is terminated by ctrl+C, is killed
+        // by some other OS signal, or an "admin" client connects and sends 
+        // a "SERVER_SHUTDOWN" or "SERVER_FORCE_SHUTDOWN" or if really needed ...
+        // "SERVER_VADER_SHUTDOWN" event to the server, over the event protocol. 
+        // See AdminClient.java for more info on what is expected.
+        
+        // the very last thing to do
+        Utils.getInstance().cleanUp();
         
     }
 }
