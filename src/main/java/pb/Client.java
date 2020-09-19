@@ -18,8 +18,9 @@ import pb.client.ClientManager;
  * @see {@link pb.ClientManager}
  * @see {@link pb.Utils}
  * @author aaron
- *
+ * 
  */
+/*Test*/
 class Client  {
 	private static Logger log = Logger.getLogger(Client.class.getName());
 	private static int port=Utils.serverPort; // default port number for the server
