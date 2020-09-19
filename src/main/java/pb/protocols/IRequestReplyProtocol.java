@@ -1,6 +1,5 @@
 package pb.protocols;
 
-import pb.EndpointUnavailable;
 
 /**
  * Request/reply protocol objects must implement this interface.
@@ -18,41 +17,35 @@ import pb.EndpointUnavailable;
 public interface IRequestReplyProtocol {
 	/**
 	 * Start the protocol as a client.
-	 * @throws EndpointUnavailable
 	 */
-	public void startAsClient() throws EndpointUnavailable;
+	public void startAsClient();
 	
 	/**
 	 * Start the protocol as a server.
-	 * @throws EndpointUnavailable
 	 */
-	public void startAsServer() throws EndpointUnavailable;
+	public void startAsServer();
 	
 	/**
 	 * Send a request message.
 	 * @param msg
-	 * @throws EndpointUnavailable
 	 */
-	public void sendRequest(Message msg) throws EndpointUnavailable;
+	public void sendRequest(Message msg);
 	
 	/**
 	 * Receive a reply message.
 	 * @param msg
-	 * @throws EndpointUnavailable
 	 */
-	public void receiveReply(Message msg) throws EndpointUnavailable;
+	public void receiveReply(Message msg);
 	
 	/**
 	 * Receive a request message.
 	 * @param msg
-	 * @throws EndpointUnavailable
 	 */
-	public void receiveRequest(Message msg) throws EndpointUnavailable;
+	public void receiveRequest(Message msg);
 	
 	/**
 	 * Send a reply message.
 	 * @param msg
-	 * @throws EndpointUnavailable
 	 */
-	public void sendReply(Message msg) throws EndpointUnavailable;
+	public void sendReply(Message msg);
 }

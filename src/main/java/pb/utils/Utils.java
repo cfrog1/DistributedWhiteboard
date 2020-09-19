@@ -1,4 +1,4 @@
-package pb;
+package pb.utils;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -25,12 +25,21 @@ public class Utils {
 	 */
 	public static final String serverHost = "localhost";
 	
+	/**
+	 * Default index server port
+	 */
+	public static final int indexServerPort = 3101;
+	
+	/**
+	 * Chunk size in bytes to use when transferring a file
+	 */
+	public static final int chunkSize = 16*1024;
 	
 	/**
 	 * Use of a single timer object over the entire system helps
 	 * to reduce thread usage.
 	 */
-	Timer timer = new Timer();
+	private Timer timer = new Timer();
 	
 	public Utils() {
 		timer=new Timer();
@@ -53,7 +62,7 @@ public class Utils {
 	 * @param delay the delay in ms before calling the method
 	 */
 	public void setTimeout(ICallback callback,long delay) {
-		
+		// nicely, this is thread safe
 		timer.schedule(new TimerTask() {
 			@Override
 			public void run() {
@@ -68,5 +77,6 @@ public class Utils {
 	 */
 	public void cleanUp() {
 		timer.cancel();
+		System.gc(); // need to do this to cleanup timer tasks and allow jvm to quit
 	}
 }

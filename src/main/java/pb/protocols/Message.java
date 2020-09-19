@@ -1,5 +1,7 @@
 package pb.protocols;
 
+import pb.protocols.event.EventReply;
+import pb.protocols.event.EventRequest;
 import pb.protocols.keepalive.KeepAliveReply;
 import pb.protocols.keepalive.KeepAliveRequest;
 import pb.protocols.session.SessionStartReply;
@@ -50,6 +52,16 @@ public class Message {
 		if(!msg.equals(val)) throw new InvalidMessage();
 	}
 	
+	static public void validateLongType(String key,Document doc) throws InvalidMessage {
+		if(!doc.containsKey(key)) throw new InvalidMessage();
+		if(!(doc.get(key) instanceof Long)) throw new InvalidMessage();
+	}
+	
+	static public void validateStringType(String key,Document doc) throws InvalidMessage {
+		if(!doc.containsKey(key)) throw new InvalidMessage();
+		if(!(doc.get(key) instanceof String)) throw new InvalidMessage();
+	}
+	
 	/**
 	 * Initialiser when given parameters in a doc.
 	 * @param name the name of the message that is being initialised
@@ -61,6 +73,7 @@ public class Message {
 		validateStringValue("name",name,doc);
 		validateStringValue("protocolName",protocolName,doc);
 		validateStringValue("type",type.toString(),doc);
+		if(doc.containsKey("timeoutId")) validateLongType("timeoutId",doc);
 	}
 	
 	/**
@@ -84,6 +97,8 @@ public class Message {
 			case SessionStartReply.name: return new SessionStartReply(doc);
 			case SessionStopRequest.name: return new SessionStopRequest(doc);
 			case SessionStopReply.name: return new SessionStopReply(doc);
+			case EventRequest.name: return new EventRequest(doc);
+			case EventReply.name: return new EventReply(doc);
 			// put more message cases here
 			
 			// if nothing matches, its invalid
@@ -119,8 +134,25 @@ public class Message {
 	 * Return the message type
 	 * @return
 	 */
-	public Message.Type getType() {
+	public final Message.Type getType() {
 		return Message.Type.valueOf(doc.getString("type"));
 	}
 	
+	/**
+	 * Set a timeout id
+	 * @param id
+	 */
+	public final void setTimeoutId(long id) {
+		doc.append("timeoutId", id);
+	}
+	
+	/**
+	 * Get timeout id
+	 * @return id
+	 */
+	public final long getTimeoutId() {
+		if(doc.containsKey("timeoutId"))
+			return doc.getLong("timeoutId");
+		else return 0;
+	}
 }

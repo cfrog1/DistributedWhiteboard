@@ -1,12 +1,12 @@
 package pb.protocols;
 
-import pb.Endpoint;
-import pb.Manager;
+import pb.managers.Manager;
+import pb.managers.endpoint.Endpoint;
 
 /**
  * All protocols have an endpoint and a manager.
- * @see {@link pb.Endpoint}
- * @see {@link pb.Manager}
+ * @see {@link pb.managers.endpoint.Endpoint}
+ * @see {@link pb.managers.Manager}
  * @see {@link pb.protocols.session.SessionProtocol}
  * @see {@link pb.protocols.keepalive.KeepAliveProtocol}
  * @author aaron

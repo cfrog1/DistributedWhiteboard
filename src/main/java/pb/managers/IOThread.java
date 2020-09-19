@@ -1,19 +1,21 @@
-package pb.server;
+package pb.managers;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.logging.Logger;
 
 /**
  * Listen for connections on a given port number and pass them to the
- * {@link pb.server.ServerManager} using
- * {@link pb.server.ServerManager#acceptClient(Socket)}. Note that the
- * {@link pb.server.ServerManager} is responsible for creating a thread for this
+ * {@link pb.managers.ServerManager} using
+ * {@link pb.managers.ServerManager#acceptClient(Socket)}. Note that the
+ * {@link pb.managers.ServerManager} is responsible for creating a thread for this
  * connection, else the IOThread will not accept any more connections until this
  * connection is finished.
  * 
- * @see {@link pb.server.ServerManager}
+ * @see {@link pb.managers.ServerManager}
  * @author aaron
  *
  */
@@ -24,8 +26,18 @@ public class IOThread extends Thread {
 	private ServerManager serverManager;
 	
 	/**
+	 * Emitted when the io thread has started. The argument
+	 * provides the io thread's Internet address in the 
+	 * form "host:port"
+	 * <ol>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ol>
+	 */
+	public static final String ioThread = "IO_THREAD";
+	
+	/**
 	 * Initialise the IOThread with a port number to listen on and reference
-	 * to the {@link pb.server.ServerManager}.
+	 * to the {@link pb.managers.ServerManager}.
 	 * @param port to listen on
 	 * @param serverManager to send connections to
 	 * @throws IOException whenever the server socket can't be created
@@ -34,6 +46,7 @@ public class IOThread extends Thread {
 		serverSocket = new ServerSocket(port); // let's throw this since its potentially unrecoverable
 		this.port=port;
 		this.serverManager=serverManager;
+		setName("IOThread");
 		start();
 	}
 	
@@ -56,6 +69,12 @@ public class IOThread extends Thread {
 	@Override
 	public void run() {
 		log.info("listening for connections on port "+port);
+		try {
+			serverManager.emit(ioThread,InetAddress.getLocalHost().getHostAddress()+":"+port);
+		} catch (UnknownHostException e1) {
+			log.severe("Could not get address of local host, continuing anyway, assuming 127.0.0.1");
+			serverManager.emit(ioThread,"127.0.0.1:"+port);
+		}
 		while(!isInterrupted() && !serverSocket.isClosed()){
 			Socket clientSocket;
 			try {
