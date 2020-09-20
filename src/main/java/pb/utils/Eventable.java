@@ -56,7 +56,7 @@ public class Eventable extends Thread {
 	
 	/**
 	 * Send event args to all of the callbacks registered
-	 * for event name.
+	 * for event name. (Used by the system - dont need to use)
 	 * @param eventName
 	 * @param args
 	 * @return true if at least one callback received the event

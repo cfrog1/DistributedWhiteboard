@@ -66,6 +66,11 @@ public class IndexServer {
 	
 	/**
 	 * Events that this server will send back to the client.
+	 * ******EVENT SERVER WILL EMIT*****
+	 * -------------------------------------
+	 * Client should listen for these events
+	 * 
+
 	 */
 	
 	/**

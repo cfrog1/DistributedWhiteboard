@@ -436,7 +436,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		localEmit(sessionError,endpoint);
 		endpoint.close();
 	}
-
+	
 	/**
 	 * The client has timed out.
 	 * Usual practice is to terminate the client connection.
@@ -450,7 +450,4 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		endpoint.close();
 	}
 
-	
-
-	
 }
