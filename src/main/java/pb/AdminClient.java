@@ -105,7 +105,7 @@ public class AdminClient  {
         	vader = true;
 		} else if (cmd.hasOption("force")) {
         	force = true;
-		} else {
+		} else if (cmd.hasOption("shutdown")){
         	shutdown = true;
 		}
 
