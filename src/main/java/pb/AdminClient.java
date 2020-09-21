@@ -139,23 +139,24 @@ public class AdminClient  {
 		 * sessionStarted event has been emitted, etc. And the client should attempt to
 		 * cleanly terminate, not just system exit.
 		 */
-		ServerManager serverManager = new ServerManager(port);
-		serverManager.on(ServerManager.sessionStarted, (eventArgs) -> {
+		clientManager.on(ClientManager.sessionStarted, (eventArgs) -> {
 			Endpoint endpoint = (Endpoint) eventArgs[0];
+			System.out.println("Hello World");
+
 			if (vader) {
+				System.out.println("Shutting down Vader style");
 				// shutdown vader style
-				endpoint.emit("VADER_SHUTDOWN_SERVER");
+				endpoint.emit(ServerManager.vaderShutdownServer, password);
 			} else if (force) {
 				// shutdown force style
-				endpoint.emit("FORCE_SHUTDOWN_SERVER");
+				endpoint.emit(ServerManager.forceShutdownServer);
 			} else if (shutdown) {
 				// shutdown normally
-				endpoint.emit("SHUTDOWN_SERVER");
+				endpoint.emit(ServerManager.shutdownServer);
 			}
 			clientManager.shutdown();
 		});
 		clientManager.join();
 		Utils.getInstance().cleanUp();
-
     }
 }

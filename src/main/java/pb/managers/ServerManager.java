@@ -138,18 +138,18 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		liveEndpoints=new HashSet<>();
 		setName("ServerManager"); // name the thread, urgh simple log can't print it :-(
 	}
-	
-	public ServerManager(int port, String password) {
-		this(port);
-		this.password = password;
-	}
-	
-	
+
 	/**
 	 * TODO: for Project 2B. Create an initializer that does as above but also takes
 	 * a password as an argument.
 	 */
-	
+	public ServerManager(int port, String password) {
+		this(port);
+		this.password = password;
+	}
+
+
+
 	/**
 	 * TODO: for Project 2B. Use one of these methods appropriately for the event
 	 * emitted, when your server receives a correct password. Usually a single
@@ -302,7 +302,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		
 		endpoint.on(shutdownServer, (ShutdownArgs)->{
 			String clientPassword = (String) ShutdownArgs[0];
-			if(clientPassword == password) {
+			if(clientPassword.equals(password)) {
 				shutdown();
 			} else {
 				log.warning("Incorrect Password for Normal shutdown");
@@ -311,7 +311,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		
 		endpoint.on(forceShutdownServer, (ShutdownArgs)->{
 			String clientPassword = (String) ShutdownArgs[0];
-			if(clientPassword == password) {
+			if(clientPassword.equals(password)) {
 				forceShutdown();
 			} else {
 				log.warning("Incorrect Password for force shutdown");
@@ -319,8 +319,9 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		});
 		
 		endpoint.on(vaderShutdownServer, (ShutdownArgs)->{
+			System.out.println("Vader shutdown heard");
 			String clientPassword = (String) ShutdownArgs[0];
-			if(clientPassword == password) {
+			if(clientPassword.equals(password)) {
 				vaderShutdown();
 			} else {
 				log.warning("Incorrect Password for vader shutdown");
@@ -342,8 +343,6 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		} catch (ProtocolAlreadyRunning e) {
 			// hmmm... already started by the client
 		}
-		
-		
 	}
 	
 	/**

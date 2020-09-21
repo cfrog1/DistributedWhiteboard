@@ -239,10 +239,9 @@ public class IndexServer {
 		options.addOption("password", true, "password for server manager, a string");
 		ServerManager serverManager;
 		if (cmd.hasOption("password")) {
-//			ServerManager serverManager = new ServerManager(port, cmd.getOptionValue("password"));
-			// include above once the constructor has been made but for now
 			log.info("password is: " + cmd.getOptionValue("password"));
-			serverManager = new ServerManager(port);
+			serverManager = new ServerManager(port, cmd.getOptionValue("password"));
+			// include above once the constructor has been made but for now
 		} else {
 			// create a server manager and setup event handlers
 			serverManager = new ServerManager(port);
