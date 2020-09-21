@@ -130,11 +130,20 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	 * Initialise the ServerManager with a port number for the io thread to listen on.
 	 * @param port to use when creating the io thread
 	 */
+	
+	private String password = " ";
+	
 	public ServerManager(int port) {
 		this.port=port;
 		liveEndpoints=new HashSet<>();
 		setName("ServerManager"); // name the thread, urgh simple log can't print it :-(
 	}
+	
+	public ServerManager(int port, String password) {
+		this(port);
+		this.password = password;
+	}
+	
 	
 	/**
 	 * TODO: for Project 2B. Create an initializer that does as above but also takes
@@ -290,6 +299,33 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		 * command line when the server is running. If the secrets match then the
 		 * shutdown is issued, otherwise it is ignored.
 		 */
+		
+		endpoint.on(shutdownServer, (ShutdownArgs)->{
+			String clientPassword = (String) ShutdownArgs[0];
+			if(clientPassword == password) {
+				shutdown();
+			} else {
+				log.warning("Incorrect Password for Normal shutdown");
+			}			
+		});
+		
+		endpoint.on(forceShutdownServer, (ShutdownArgs)->{
+			String clientPassword = (String) ShutdownArgs[0];
+			if(clientPassword == password) {
+				forceShutdown();
+			} else {
+				log.warning("Incorrect Password for force shutdown");
+			}			
+		});
+		
+		endpoint.on(vaderShutdownServer, (ShutdownArgs)->{
+			String clientPassword = (String) ShutdownArgs[0];
+			if(clientPassword == password) {
+				vaderShutdown();
+			} else {
+				log.warning("Incorrect Password for vader shutdown");
+			}			
+		});
 		
 		KeepAliveProtocol keepAliveProtocol = new KeepAliveProtocol(endpoint,this);
 		try {
