@@ -210,33 +210,33 @@ public class IndexServer {
                 "[%1$tl:%1$tM:%1$tS:%1$tL] [%4$s] %2$s: %5$s%n");
         
     	// parse command line options
-        Options options = new Options();
-        options.addOption("port",true,"server port, an integer");
-        
-        CommandLineParser parser = new DefaultParser();
-        CommandLine cmd = null;
-        try {
+		Options options = new Options();
+		options.addOption("port",true,"server port, an integer");
+		options.addOption("password", true, "password for server manager, a string");
+
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = null;
+		try {
 			cmd = parser.parse( options, args);
 		} catch (ParseException e1) {
 			help(options);
 		}
-        
-        if(cmd.hasOption("port")){
-        	try{
-        		port = Integer.parseInt(cmd.getOptionValue("port"));
+
+		if(cmd.hasOption("port")){
+			try{
+				port = Integer.parseInt(cmd.getOptionValue("port"));
 			} catch (NumberFormatException e){
 				System.out.println("-port requires a port number, parsed: "+cmd.getOptionValue("port"));
 				help(options);
 			}
-        }
-        
-        /**
-		 * TODO: for Project 2B. Create a "-password" option that reads a string
-		 * password from the user at the command line. Use the
-		 * ServerManager(port,password) initializer (that needs to be created by you in
-		 * ServerMain.java) if the password was given.
-		 */
-		options.addOption("password", true, "password for server manager, a string");
+		}
+
+		/**
+         * TODO: for Project 2B. Create a "-password" option that reads a string
+         * password from the user at the command line. Use the
+         * ServerManager(port,password) initializer (that needs to be created by you in
+         * ServerMain.java) if the password was given.
+         */
 		ServerManager serverManager;
 		if (cmd.hasOption("password")) {
 			log.info("password is: " + cmd.getOptionValue("password"));

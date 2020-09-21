@@ -142,7 +142,6 @@ public class AdminClient  {
 		clientManager.on(ClientManager.sessionStarted, (eventArgs) -> {
 			Endpoint endpoint = (Endpoint) eventArgs[0];
 			System.out.println("Hello World");
-
 			if (vader) {
 				System.out.println("Shutting down Vader style");
 				// shutdown vader style
