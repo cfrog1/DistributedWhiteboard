@@ -32,12 +32,14 @@ import pb.managers.endpoint.Endpoint;
 import pb.utils.Utils;
 
 /**
+ * TODO: actually do response checking in sharefiles.
+ *
  * TODO: for Project 2B The FileSharingPeer is a simple example of using a
  * PeerManager to control both a server and any number of client connections to
  * a server/peers. <br/>
  * <b>Please see the video recording on Canvas for an explanation of what the
  * the FileSharingPeer is meant to do.</b>
- * 
+ *
  * @author aaron
  *
  */
@@ -152,12 +154,12 @@ public class FileSharingPeer {
 
 	/**
 	 * Emit a filename as an index update if possible, close when all done.
-	 * 
+	 *
 	 * @param filenames
 	 * @param endpoint
 	 */
 	public static void emitIndexUpdate(String peerport, List<String> filenames, Endpoint endpoint,
-			ClientManager clientManager) {
+									   ClientManager clientManager) {
 		if (filenames.size() == 0) {
 			clientManager.shutdown(); // no more index updates to do
 		} else {
@@ -174,7 +176,7 @@ public class FileSharingPeer {
 	/**
 	 * Open a client connection to the index server and send the filenames to update
 	 * the index.
-	 * 
+	 *
 	 * @param filenames
 	 * @param peerManager
 	 * @throws InterruptedException
@@ -193,13 +195,26 @@ public class FileSharingPeer {
 		 * informative for the events when they they occur.
 		 */
 
+		clientManager.on(PeerManager.peerStarted, (args) -> {
+			log.info("Peer started");
+			Endpoint client = (Endpoint)args[0];
+			emitIndexUpdate(peerport, filenames, client, clientManager);
+			client.on(IndexServer.indexUpdateError, (args2)->{
+				log.severe("Index update error on: " +(String)args2[0]);
+			});
+		}).on(PeerManager.peerStopped, (args)->{
+			log.info("Peer Stopped");
+		}).on(PeerManager.peerError, (args)->{
+			log.severe("Peer Error");
+		});
+
 		clientManager.start();
 	}
 
 	/**
 	 * Share files by starting up a server manager and then sending updates to the
 	 * index server to say which files are being shared.
-	 * 
+	 *
 	 * @param files list of file names to share
 	 * @throws InterruptedException
 	 * @throws IOException
@@ -219,6 +234,25 @@ public class FileSharingPeer {
 		 * peerServerManager is ready and when the ioThread event has been received.
 		 * Print out something informative for the events when they occur.
 		 */
+		peerManager.on(PeerManager.peerStarted, (args) -> {
+			log.info("Peer started");
+			Endpoint client = (Endpoint)args[0];
+			client.on(getFile, (args2)->{
+				String file = (String)args2[0];
+				startTransmittingFile(file, client);
+			});
+		}).on(PeerManager.peerStopped, (args)->{
+			log.info("Peer Stopped");
+		}).on(PeerManager.peerError, (args)->{
+			log.severe("Peer Error");
+		}).on(PeerManager.peerServerManager, (args)->{
+			log.info("Peer server manager ready");
+			ServerManager serverManager = (ServerManager)args[0];
+			serverManager.on(IOThread.ioThread, (args2)->{
+				log.info("IOThread ready");
+				uploadFileList(filenames, peerManager, String.valueOf(peerPort));
+			});
+		});
 
 		peerManager.start();
 
@@ -232,15 +266,23 @@ public class FileSharingPeer {
 
 	/**
 	 * Process a query response from the index server and download the file
-	 * 
+	 *
 	 * @param queryResponse
 	 * @throws InterruptedException
 	 */
-	private static void getFileFromPeer(PeerManager peerManager, String response) throws InterruptedException {
+	private static void getFileFromPeer(PeerManager peerManager, String response) throws InterruptedException, UnknownHostException {
 		// Create a independent client manager (thread) for each download
 		// response has the format: PeerIP:PeerPort:filename
 		String[] parts = response.split(":", 3);
-		ClientManager clientManager = null;
+		try {
+		Integer peerport = Integer.parseInt(parts[1]);
+		}
+		catch (Exception e) {
+			log.severe("Peer port not an integer");
+		}
+
+
+		ClientManager clientManager = peerManager.connect(Integer.parseInt(parts[1]), parts[0]);
 
 		/*
 		 * TODO for project 2B. Check that the individual parts returned from the server
@@ -260,12 +302,33 @@ public class FileSharingPeer {
 			 * connection. Remember to emit a getFile event to request the file form the
 			 * peer. Print out something informative for the events that occur.
 			 */
+			clientManager.on(PeerManager.peerStarted, (args)->{
+				Endpoint client = (Endpoint)args[0];
+				client.on(fileContents, (args2)->{
+					byte[] b = (byte[])args2[0];
+					try {
+						out.write(b);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}).on(fileError, (args3)->{
+					log.severe("File error");
+					clientManager.shutdown();
+				});
+				client.emit(getFile,parts[2]);
+			}).on(PeerManager.peerStopped, (args)->{
+				log.info("Peer Stopped");
+			}).on(PeerManager.peerError, (args)->{
+				log.severe("Peer error");
+			});
+
+
 
 			clientManager.start();
 			/*
 			 * we will join with this thread later to make sure that it has finished
 			 * downloading before the jvm quits.
-			 */			
+			 */
 		} catch (FileNotFoundException e) {
 			System.out.println("Could not create file: " + parts[2]);
 		}
@@ -275,7 +338,7 @@ public class FileSharingPeer {
 	/**
 	 * Query the index server for the keywords and download files for each of the
 	 * query responses.
-	 * 
+	 *
 	 * @param keywords list of keywords to query for and download matching files
 	 * @throws InterruptedException
 	 * @throws UnknownHostException
@@ -294,8 +357,38 @@ public class FileSharingPeer {
 		 * arrive. Make sure to emit your queryIndex event to actually query the index
 		 * server. Print out something informative for the events that occur.
 		 */
+		clientManager.on(PeerManager.peerStarted, (args)->{
+			log.info("Peer started");
+			Endpoint client = (Endpoint)args[0];
+			client.on(IndexServer.queryResponse, (response)->{
+				log.info("Query response received");
+				String resp = (String)response[0];
+				if (resp == "") {
+					clientManager.shutdown();
+				}
+				else {
+					try {
+						getFileFromPeer(peerManager, resp);
+					} catch (Exception e) {
+						log.severe("Error while getting file");
+					}
+				}
+			}).on(IndexServer.queryError, (args2)->{
+				log.severe("Query error");
+				clientManager.shutdown(); //is this right?
+			});
+			client.emit(IndexServer.queryIndex, query);
+
+		}).on(PeerManager.peerError, (args)->{
+			log.severe("Peer error");
+		}).on(PeerManager.peerStopped, (args)->{
+			log.info("Peer stopped");
+		});
+
 
 		clientManager.start();
+
+
 		clientManager.join(); // wait for the query to finish, since we are in main
 		/*
 		 * We also have to join with any other client managers that were started for
