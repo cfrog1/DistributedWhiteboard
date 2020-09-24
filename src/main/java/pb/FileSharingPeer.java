@@ -200,7 +200,8 @@ public class FileSharingPeer {
 			Endpoint client = (Endpoint)args[0];
 			emitIndexUpdate(peerport, filenames, client, clientManager);
 			client.on(IndexServer.indexUpdateError, (args2)->{
-				log.severe("Index update error on: " +(String)args2[0]);
+				String[] info = ((String) args2[0]).split(":");
+				log.severe("Index update error on: " + info[0]);
 			});
 		}).on(PeerManager.peerStopped, (args)->{
 			log.info("Peer Stopped");
@@ -249,8 +250,13 @@ public class FileSharingPeer {
 			log.info("Peer server manager ready");
 			ServerManager serverManager = (ServerManager)args[0];
 			serverManager.on(IOThread.ioThread, (args2)->{
+				String peerport = (String) args2[0];
 				log.info("IOThread ready");
-				uploadFileList(filenames, peerManager, String.valueOf(peerPort));
+				try {
+					uploadFileList(filenames, peerManager, peerport);
+				} catch (Exception e) {
+					log.severe("IOException when uploading the files");
+				}
 			});
 		});
 
