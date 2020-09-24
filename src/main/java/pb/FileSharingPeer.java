@@ -279,23 +279,23 @@ public class FileSharingPeer {
 	private static void getFileFromPeer(PeerManager peerManager, String response) throws InterruptedException, UnknownHostException {
 		// Create a independent client manager (thread) for each download
 		// response has the format: PeerIP:PeerPort:filename
-		String[] parts = response.split(":", 3);
-		try {
-		Integer peerport = Integer.parseInt(parts[1]);
-		}
-		catch (Exception e) {
-			log.severe("Peer port not an integer");
-		}
-
-
-		ClientManager clientManager = peerManager.connect(Integer.parseInt(parts[1]), parts[0]);
-
 		/*
 		 * TODO for project 2B. Check that the individual parts returned from the server
 		 * have the correct format and that we make a connection to the peer. Print out
 		 * any errors and just return in this case. Otherwise you have a clientManager
 		 * that has connected.
 		 */
+		String[] parts = response.split(":", 3);
+//		try {
+//			Integer peerport = Integer.parseInt(parts[1]);
+//		}
+//		catch (Exception e) {
+//			log.severe("Peer port not an integer");
+//		}
+
+
+		ClientManager clientManager = peerManager.connect(Integer.parseInt(parts[1]), parts[0]);
+
 
 		try {
 			OutputStream out = new FileOutputStream(parts[2]);
@@ -311,9 +311,9 @@ public class FileSharingPeer {
 			clientManager.on(PeerManager.peerStarted, (args)->{
 				Endpoint client = (Endpoint)args[0];
 				client.on(fileContents, (args2)->{
-					byte[] b = (byte[])args2[0];
+					byte[] b1 = Base64.decodeBase64((String)args2[0]);
 					try {
-						out.write(b);
+						out.write(b1);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -369,7 +369,7 @@ public class FileSharingPeer {
 			client.on(IndexServer.queryResponse, (response)->{
 				log.info("Query response received");
 				String resp = (String)response[0];
-				if (resp == "") {
+				if (resp.equals("")) {
 					clientManager.shutdown();
 				}
 				else {
