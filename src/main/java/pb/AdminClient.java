@@ -148,10 +148,10 @@ public class AdminClient  {
 				endpoint.emit(ServerManager.vaderShutdownServer, password);
 			} else if (force) {
 				// shutdown force style
-				endpoint.emit(ServerManager.forceShutdownServer);
+				endpoint.emit(ServerManager.forceShutdownServer, password);
 			} else if (shutdown) {
 				// shutdown normally
-				endpoint.emit(ServerManager.shutdownServer);
+				endpoint.emit(ServerManager.shutdownServer, password);
 			}
 			clientManager.shutdown();
 		});

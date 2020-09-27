@@ -34,6 +34,10 @@ import pb.utils.Utils;
 /**
  * TODO: actually do response checking in sharefiles.
  *
+ * TODO handle ending the session
+ *
+ * TODO improve the logging/printing stuff
+ *
  * TODO: for Project 2B The FileSharingPeer is a simple example of using a
  * PeerManager to control both a server and any number of client connections to
  * a server/peers. <br/>
@@ -388,6 +392,7 @@ public class FileSharingPeer {
 		}).on(PeerManager.peerError, (args)->{
 			log.severe("Peer error");
 		}).on(PeerManager.peerStopped, (args)->{
+			System.out.println("Server is no longer online, you might not have received the full file :(");
 			log.info("Peer stopped");
 		});
 
