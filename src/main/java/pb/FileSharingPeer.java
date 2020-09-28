@@ -307,45 +307,46 @@ public class FileSharingPeer {
 			return;
 		}
 		ClientManager clientManager = peerManager.connect(peerport, parts[0]);
-		try {
 
-			/*
-			 * TODO for project 2B. listen for peerStarted, peerStopped and peerError events
-			 * on the clientManager. Listen for fileContents and fileError events on the
-			 * endpoint when available and handle them appropriately. Handle error
-			 * conditions by printing something informative and shutting down the
-			 * connection. Remember to emit a getFile event to request the file form the
-			 * peer. Print out something informative for the events that occur.
-			 */
-			OutputStream out = new FileOutputStream(parts[2]);
-			clientManager.on(PeerManager.peerStarted, (args)->{
-				Endpoint client = (Endpoint)args[0];
-				client.on(fileContents, (args2)->{
-					byte[] b1 = Base64.decodeBase64((String)args2[0]);
+		/*
+		 * TODO for project 2B. listen for peerStarted, peerStopped and peerError events
+		 * on the clientManager. Listen for fileContents and fileError events on the
+		 * endpoint when available and handle them appropriately. Handle error
+		 * conditions by printing something informative and shutting down the
+		 * connection. Remember to emit a getFile event to request the file form the
+		 * peer. Print out something informative for the events that occur.
+		 */
+		clientManager.on(PeerManager.peerStarted, (args)->{
+			try {
+				OutputStream out = new FileOutputStream(parts[2]);
+				Endpoint client = (Endpoint) args[0];
+				client.on(fileContents, (args2) -> {
+					byte[] b1 = Base64.decodeBase64((String) args2[0]);
 					try {
 						out.write(b1);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-				}).on(fileError, (args3)->{
+				}).on(fileError, (args3) -> {
 					log.severe("File error");
 					clientManager.shutdown();
 				});
-				client.emit(getFile,parts[2]);
-			}).on(PeerManager.peerStopped, (args)->{
-				log.info("Peer Stopped");
-			}).on(PeerManager.peerError, (args)->{
-				log.severe("Peer error");
-			});
+				client.emit(getFile, parts[2]);
+			}
+			catch (FileNotFoundException e) {
+					System.out.println("Could not create file: " + parts[2]);
+				}
+		}).on(PeerManager.peerStopped, (args)->{
+			log.info("Peer Stopped");
+		}).on(PeerManager.peerError, (args)->{
+			log.severe("Peer error");
+		});
 
-			clientManager.start();
-			/*
-			 * we will join with this thread later to make sure that it has finished
-			 * downloading before the jvm quits.
-			 */
-		} catch (FileNotFoundException e) {
-			System.out.println("Could not create file: " + parts[2]);
-		}
+		clientManager.start();
+		/*
+		 * we will join with this thread later to make sure that it has finished
+		 * downloading before the jvm quits.
+		 */
 
 	}
 
