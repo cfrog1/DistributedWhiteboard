@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -29,6 +32,7 @@ import pb.managers.IOThread;
 import pb.managers.PeerManager;
 import pb.managers.ServerManager;
 import pb.managers.endpoint.Endpoint;
+import pb.protocols.IProtocolHandler;
 import pb.utils.Utils;
 
 /**
@@ -136,7 +140,7 @@ public class FileSharingPeer {
 				}
 			}
 		} catch (IOException e) {
-			endpoint.emit(fileError);
+			endpoint.emit(fileError, "File IO error");
 		}
 	}
 
@@ -152,7 +156,7 @@ public class FileSharingPeer {
 			InputStream in = new FileInputStream(filename);
 			continueTransmittingFile(in, endpoint);
 		} catch (FileNotFoundException e) {
-			endpoint.emit(fileError);
+			endpoint.emit(fileError, "File does not exist");
 		}
 	}
 
@@ -290,19 +294,20 @@ public class FileSharingPeer {
 		 * that has connected.
 		 */
 		String[] parts = response.split(":", 3);
-//		try {
-//			Integer peerport = Integer.parseInt(parts[1]);
-//		}
-//		catch (Exception e) {
-//			log.severe("Peer port not an integer");
-//		}
-
-
-		ClientManager clientManager = peerManager.connect(Integer.parseInt(parts[1]), parts[0]);
-
-
+		int peerport;
+		if (parts.length != 3) {
+			System.out.println("Peer manager format is incorrect");
+			return;
+		}
 		try {
-			OutputStream out = new FileOutputStream(parts[2]);
+			peerport = Integer.parseInt(parts[1]);
+		}
+		catch (NumberFormatException e) {
+			System.out.println("Peer port not an integer");
+			return;
+		}
+		ClientManager clientManager = peerManager.connect(peerport, parts[0]);
+		try {
 
 			/*
 			 * TODO for project 2B. listen for peerStarted, peerStopped and peerError events
@@ -312,6 +317,7 @@ public class FileSharingPeer {
 			 * connection. Remember to emit a getFile event to request the file form the
 			 * peer. Print out something informative for the events that occur.
 			 */
+			OutputStream out = new FileOutputStream(parts[2]);
 			clientManager.on(PeerManager.peerStarted, (args)->{
 				Endpoint client = (Endpoint)args[0];
 				client.on(fileContents, (args2)->{
@@ -331,8 +337,6 @@ public class FileSharingPeer {
 			}).on(PeerManager.peerError, (args)->{
 				log.severe("Peer error");
 			});
-
-
 
 			clientManager.start();
 			/*
@@ -392,7 +396,6 @@ public class FileSharingPeer {
 		}).on(PeerManager.peerError, (args)->{
 			log.severe("Peer error");
 		}).on(PeerManager.peerStopped, (args)->{
-			System.out.println("Server is no longer online, you might not have received the full file :(");
 			log.info("Peer stopped");
 		});
 

@@ -109,10 +109,6 @@ public class AdminClient  {
         	shutdown = true;
 		}
 
-        log.info("Vader Shutdown: " + vader);
-        log.info("Force Shutdown: " + force);
-        log.info("Normal Shutdown: " + shutdown);
-
         // start up the client
         log.info("PB Client starting up");
 
@@ -128,22 +124,10 @@ public class AdminClient  {
 		 * will wait for the client manager session to stop cleanly (or otherwise).
 		 * Don't forget that you need to modify ServerMain.java to listen for these
 		 * events coming from any client that connects to it.
-		 *
-		 *
-		 *  * provide default values. Modify this client to take command line options
-		 * -shutdown, -force and -vader (explained further below). The client should
-		 * emit the appropriate event, either: {@link pb.managers.ServerManager#shutdownServer},
-		 * {@link pb.managers.ServerManager#forceShutdownServer} or
-		 * {@link pb.managers.ServerManager#vaderShutdownServer} and then simply stop the
-		 * session and terminate. Make sure the client does not emit the event until the
-		 * sessionStarted event has been emitted, etc. And the client should attempt to
-		 * cleanly terminate, not just system exit.
 		 */
 		clientManager.on(ClientManager.sessionStarted, (eventArgs) -> {
 			Endpoint endpoint = (Endpoint) eventArgs[0];
-			System.out.println("Hello World");
 			if (vader) {
-				System.out.println("Shutting down Vader style");
 				// shutdown vader style
 				endpoint.emit(ServerManager.vaderShutdownServer, password);
 			} else if (force) {

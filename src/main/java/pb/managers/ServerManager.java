@@ -319,13 +319,12 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		});
 		
 		endpoint.on(vaderShutdownServer, (ShutdownArgs)->{
-			System.out.println("Vader shutdown heard");
 			String clientPassword = (String) ShutdownArgs[0];
 			if(clientPassword.equals(password)) {
 				vaderShutdown();
 			} else {
 				log.warning("Incorrect Password for vader shutdown");
-			}			
+			}
 		});
 		
 		KeepAliveProtocol keepAliveProtocol = new KeepAliveProtocol(endpoint,this);
