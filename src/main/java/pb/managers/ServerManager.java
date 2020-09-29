@@ -161,22 +161,25 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	 * finish up gracefully, or if they can't wait at all, etc.
 	 */
 	
-	public void shutdown() {
+	public void shutdown(Endpoint adminEndpoint) {
 		log.info("server shutdown called");
 		// this will not force existing clients to finish their sessions
 		ioThread.shutDown();
+		adminClientEP = adminEndpoint;
 	}
 	
-	public void forceShutdown() { // Skywalker style :-)
+	public void forceShutdown(Endpoint adminEndpoint) { // Skywalker style :-)
 		log.warning("server force shutdown called");
 		forceShutdown=true; // this will send session stops to all the clients
 		ioThread.shutDown();
+		adminClientEP = adminEndpoint;
 	}
 	
-	public void vaderShutdown() { // Darkside style :-]
+	public void vaderShutdown(Endpoint adminEndpoint) { // Darkside style :-]
 		log.warning("server vader shutdown called");
 		vaderShutdown=true; // this will just close all of the endpoints abruptly
 		ioThread.shutDown();
+		adminClientEP = adminEndpoint;
 	}
 	
 	/**
@@ -266,12 +269,9 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	}
 	
 	private boolean isAdminClient(Endpoint endpoint) {
-		boolean flag = false;
 		
-		if (endpoint == adminClientEP)
-			flag = true;
+		return ((endpoint == adminClientEP) ? true : false);
 
-		return flag;
 	}
 	
 	/**
@@ -315,32 +315,17 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		
 		endpoint.on(shutdownServer, (ShutdownArgs)->{
 			String clientPassword = (String) ShutdownArgs[0];
-			if(clientPassword.equals(password)) {
-				shutdown();
-				adminClientEP = endpoint;
-			} else {
-				log.warning("Incorrect password (Normal Shutdown) | Client ID: " + endpoint.getOtherEndpointId());
-			}			
-		});
-		
-		endpoint.on(forceShutdownServer, (ShutdownArgs)->{
+			verifyShutdown(endpoint, clientPassword, shutdownServer);	
+
+		}).on(forceShutdownServer, (ShutdownArgs)->{
+
 			String clientPassword = (String) ShutdownArgs[0];
-			if(clientPassword.equals(password)) {
-				forceShutdown();
-				adminClientEP = endpoint;
-			} else {
-				log.warning("Incorrect password (Force Shutdown) | Client ID: " + endpoint.getOtherEndpointId());
-			}			
-		});
-		
-		endpoint.on(vaderShutdownServer, (ShutdownArgs)->{
+			verifyShutdown(endpoint, clientPassword, forceShutdownServer);
+
+		}).on(vaderShutdownServer, (ShutdownArgs)->{
+
 			String clientPassword = (String) ShutdownArgs[0];
-			if(clientPassword.equals(password)) {
-				vaderShutdown();
-				adminClientEP = endpoint;
-			} else {
-				log.warning("Incorrect password (Vader Shutdown) | Client ID: " + endpoint.getOtherEndpointId());
-			}
+			verifyShutdown(endpoint, clientPassword, vaderShutdownServer);
 		});
 		
 		KeepAliveProtocol keepAliveProtocol = new KeepAliveProtocol(endpoint,this);
@@ -358,6 +343,32 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		} catch (ProtocolAlreadyRunning e) {
 			// hmmm... already started by the client
 		}
+	}
+	
+	private void verifyShutdown(Endpoint endpoint, String clientPW, String event) {
+		if (clientPW.equals(password)) {
+
+			switch(event) {
+
+				case shutdownServer:
+					shutdown(endpoint);
+					break;
+				case forceShutdownServer:
+					forceShutdown(endpoint);
+					break;
+				case vaderShutdownServer:
+					vaderShutdown(endpoint);
+					break;
+				default:
+					log.warning(  "Unknown shutdown event: " + event + " | " 
+								+ "Correct password given | "
+							    + "Client ID: " + endpoint.getOtherEndpointId());
+			}
+		}
+		else
+			log.warning(  "Incorrect shutdown password | " 
+						+ "Shutdown Type: " + event + " | "
+					    + "Client ID: " + endpoint.getOtherEndpointId());
 	}
 	
 	/**
