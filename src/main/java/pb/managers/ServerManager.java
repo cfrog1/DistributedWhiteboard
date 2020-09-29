@@ -319,7 +319,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 				shutdown();
 				adminClientEP = endpoint;
 			} else {
-				log.warning("Incorrect Password for Normal shutdown");
+				log.warning("Incorrect password (Normal Shutdown) | Client ID: " + endpoint.getOtherEndpointId());
 			}			
 		});
 		
@@ -329,7 +329,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 				forceShutdown();
 				adminClientEP = endpoint;
 			} else {
-				log.warning("Incorrect Password for force shutdown");
+				log.warning("Incorrect password (Force Shutdown) | Client ID: " + endpoint.getOtherEndpointId());
 			}			
 		});
 		
@@ -339,7 +339,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 				vaderShutdown();
 				adminClientEP = endpoint;
 			} else {
-				log.warning("Incorrect Password for vader shutdown");
+				log.warning("Incorrect password (Vader Shutdown) | Client ID: " + endpoint.getOtherEndpointId());
 			}
 		});
 		
