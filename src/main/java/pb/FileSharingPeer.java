@@ -213,8 +213,10 @@ public class FileSharingPeer {
 			});
 		}).on(PeerManager.peerStopped, (args)->{
 			log.info("Peer Stopped");
+
 		}).on(PeerManager.peerError, (args)->{
 			log.severe("Peer Error");
+
 		});
 
 		clientManager.start();
@@ -294,19 +296,34 @@ public class FileSharingPeer {
 		 * that has connected.
 		 */
 		String[] parts = response.split(":", 3);
-		int peerport;
-		if (parts.length != 3) {
-			System.out.println("Peer manager format is incorrect");
-			return;
+
+		//PeerIP is checked for being a set of integers separated by "."
+		//PeerPort is checked for being an integer.
+		//Filename can be almost any string, so it is not checked.
+		String[] ipParts = parts[0].split(".", 4);
+		for (String num: ipParts) {
+			 try {
+			 	System.out.println(num);
+			 	Integer.parseInt((num));
+			 } catch (NumberFormatException e) {
+				 log.severe("Host IP not valid");
+			 }
 		}
 		try {
-			peerport = Integer.parseInt(parts[1]);
+			Integer peerport = Integer.parseInt(parts[1]);
 		}
-		catch (NumberFormatException e) {
-			System.out.println("Peer port not an integer");
-			return;
+		catch (Exception e) {
+			log.severe("Peer port not an integer");
 		}
-		ClientManager clientManager = peerManager.connect(peerport, parts[0]);
+
+		if (parts.length != 3 || ipParts.length != 4) {
+			log.severe("Invalid response format");
+		}
+
+		//If connection fails, exception is thrown
+		ClientManager clientManager = peerManager.connect(Integer.parseInt(parts[1]), parts[0]);
+
+
 
 		/*
 		 * TODO for project 2B. listen for peerStarted, peerStopped and peerError events
@@ -321,12 +338,21 @@ public class FileSharingPeer {
 				OutputStream out = new FileOutputStream(parts[2]);
 				Endpoint client = (Endpoint) args[0];
 				client.on(fileContents, (args2) -> {
-					byte[] b1 = Base64.decodeBase64((String) args2[0]);
-					try {
-						out.write(b1);
-					} catch (IOException e) {
-						e.printStackTrace();
+					String content = (String)args2[0];
+					System.out.println("Contents: "+content);
+					if (content.equals("")) {
+						log.info("File finished");
+						clientManager.shutdown();
 					}
+					else {
+						byte[] b1 = Base64.decodeBase64((String) args2[0]);
+						try {
+							out.write(b1);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+
 				}).on(fileError, (args3) -> {
 					log.severe("File error");
 					clientManager.shutdown();
@@ -338,8 +364,10 @@ public class FileSharingPeer {
 				}
 		}).on(PeerManager.peerStopped, (args)->{
 			log.info("Peer Stopped");
+
 		}).on(PeerManager.peerError, (args)->{
 			log.severe("Peer error");
+
 		});
 
 		clientManager.start();
@@ -379,6 +407,7 @@ public class FileSharingPeer {
 				log.info("Query response received");
 				String resp = (String)response[0];
 				if (resp.equals("")) {
+					log.info("No more files");
 					clientManager.shutdown();
 				}
 				else {
@@ -390,7 +419,7 @@ public class FileSharingPeer {
 				}
 			}).on(IndexServer.queryError, (args2)->{
 				log.severe("Query error");
-				clientManager.shutdown(); //is this right?
+				clientManager.shutdown();
 			});
 			client.emit(IndexServer.queryIndex, query);
 
