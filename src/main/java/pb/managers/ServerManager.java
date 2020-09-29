@@ -133,6 +133,8 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	
 	private String password = " ";
 	
+	private Endpoint adminClientEP = null;
+	
 	public ServerManager(int port) {
 		this.port=port;
 		liveEndpoints=new HashSet<>();
@@ -220,7 +222,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 			synchronized(liveEndpoints) {
 				liveEndpoints.forEach((endpoint)->{
 					SessionProtocol sessionProtocol=(SessionProtocol) endpoint.getProtocol("SessionProtocol");
-					if(sessionProtocol!=null)
+					if(sessionProtocol!=null & !isAdminClient(endpoint))
 						sessionProtocol.stopSession();
 				});
 			}
@@ -232,7 +234,8 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 			// let's just close everything
 			synchronized(liveEndpoints) {
 				liveEndpoints.forEach((endpoint)->{
-					endpoint.close();
+					if(!isAdminClient(endpoint))
+						endpoint.close();
 				});
 			}
 		}
@@ -253,12 +256,22 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 				// maybe we missed some earlier
 				synchronized(liveEndpoints) {
 					liveEndpoints.forEach((endpoint)->{
-						endpoint.close();
+						if(!isAdminClient(endpoint))
+							endpoint.close();
 					});
 				}
 			}
 		}
 		log.info("terminated");
+	}
+	
+	private boolean isAdminClient(Endpoint endpoint) {
+		boolean flag = false;
+		
+		if (endpoint == adminClientEP)
+			flag = true;
+
+		return flag;
 	}
 	
 	/**
@@ -304,6 +317,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 			String clientPassword = (String) ShutdownArgs[0];
 			if(clientPassword.equals(password)) {
 				shutdown();
+				adminClientEP = endpoint;
 			} else {
 				log.warning("Incorrect Password for Normal shutdown");
 			}			
@@ -313,6 +327,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 			String clientPassword = (String) ShutdownArgs[0];
 			if(clientPassword.equals(password)) {
 				forceShutdown();
+				adminClientEP = endpoint;
 			} else {
 				log.warning("Incorrect Password for force shutdown");
 			}			
@@ -322,6 +337,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 			String clientPassword = (String) ShutdownArgs[0];
 			if(clientPassword.equals(password)) {
 				vaderShutdown();
+				adminClientEP = endpoint;
 			} else {
 				log.warning("Incorrect Password for vader shutdown");
 			}
@@ -352,6 +368,8 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	public void endpointClosed(Endpoint endpoint) {
 		synchronized(liveEndpoints) {
 			liveEndpoints.remove(endpoint);
+			if (endpoint == adminClientEP)
+				adminClientEP = null;
 		}
 	}
 
@@ -367,7 +385,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		if(forceShutdown) {
 			// ask the client to stop now
 			SessionProtocol sessionProtocol=(SessionProtocol) endpoint.getProtocol("SessionProtocol");
-			if(sessionProtocol!=null)
+			if(sessionProtocol!=null & !isAdminClient(endpoint))
 				sessionProtocol.stopSession();
 		}
 		
