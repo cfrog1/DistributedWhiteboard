@@ -378,7 +378,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		if(forceShutdown) {
 			// ask the client to stop now
 			SessionProtocol sessionProtocol=(SessionProtocol) endpoint.getProtocol("SessionProtocol");
-			if(sessionProtocol!=null)
+			if(sessionProtocol!=null & endpoint.getOtherEndpointId() != adminClientId)
 				sessionProtocol.stopSession();
 		}
 		
