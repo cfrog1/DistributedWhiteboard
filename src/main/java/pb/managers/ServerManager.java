@@ -165,21 +165,21 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 		log.info("server shutdown called");
 		// this will not force existing clients to finish their sessions
 		ioThread.shutDown();
-		adminClientEP = adminEndpoint;
+		setAdminClient(adminEndpoint);
 	}
 	
 	public void forceShutdown(Endpoint adminEndpoint) { // Skywalker style :-)
 		log.warning("server force shutdown called");
 		forceShutdown=true; // this will send session stops to all the clients
 		ioThread.shutDown();
-		adminClientEP = adminEndpoint;
+		setAdminClient(adminEndpoint);
 	}
 	
 	public void vaderShutdown(Endpoint adminEndpoint) { // Darkside style :-]
 		log.warning("server vader shutdown called");
 		vaderShutdown=true; // this will just close all of the endpoints abruptly
 		ioThread.shutDown();
-		adminClientEP = adminEndpoint;
+		setAdminClient(adminEndpoint);
 	}
 	
 	/**
@@ -274,6 +274,10 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 
 	}
 	
+	private void setAdminClient(Endpoint endpoint) {
+		adminClientEP = endpoint;
+	}
+	
 	/**
 	 * A new client has connected to the server. We need to keep
 	 * a set of all clients that have connected, so that we can
@@ -347,9 +351,7 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	
 	private void verifyShutdown(Endpoint endpoint, String clientPW, String event) {
 		if (clientPW.equals(password)) {
-
 			switch(event) {
-
 				case shutdownServer:
 					shutdown(endpoint);
 					break;
@@ -379,8 +381,9 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	public void endpointClosed(Endpoint endpoint) {
 		synchronized(liveEndpoints) {
 			liveEndpoints.remove(endpoint);
+			
 			if (endpoint == adminClientEP)
-				adminClientEP = null;
+				setAdminClient(null);
 		}
 	}
 
