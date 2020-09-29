@@ -99,6 +99,8 @@ public class AdminClient  {
         if (cmd.hasOption("password")) {
         	password = cmd.getOptionValue("password");
         	log.info("The password you entered is: " +password);
+		} else {
+			System.out.println("No password has been given");
 		}
 
         if (cmd.hasOption("vader")) {
@@ -107,6 +109,8 @@ public class AdminClient  {
         	force = true;
 		} else if (cmd.hasOption("shutdown")){
         	shutdown = true;
+		} else {
+			System.out.println("No shutdown type given. Please choose from Vader, Force of Shutdown shutdown type.");
 		}
 
         // start up the client
