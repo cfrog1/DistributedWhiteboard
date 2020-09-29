@@ -300,10 +300,9 @@ public class FileSharingPeer {
 		//PeerIP is checked for being a set of integers separated by "."
 		//PeerPort is checked for being an integer.
 		//Filename can be almost any string, so it is not checked.
-		String[] ipParts = parts[0].split(".", 4);
+		String[] ipParts = parts[0].split("\\.", 4);
 		for (String num: ipParts) {
 			 try {
-			 	System.out.println(num);
 			 	Integer.parseInt((num));
 			 } catch (NumberFormatException e) {
 				 log.severe("Host IP not valid");
@@ -339,7 +338,6 @@ public class FileSharingPeer {
 				Endpoint client = (Endpoint) args[0];
 				client.on(fileContents, (args2) -> {
 					String content = (String)args2[0];
-					System.out.println("Contents: "+content);
 					if (content.equals("")) {
 						log.info("File finished");
 						clientManager.shutdown();
