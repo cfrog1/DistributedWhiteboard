@@ -161,25 +161,25 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	 * finish up gracefully, or if they can't wait at all, etc.
 	 */
 	
-	public void shutdown(Endpoint adminEndpoint) {
+	public void shutdown() {
 		log.info("server shutdown called");
 		// this will not force existing clients to finish their sessions
 		ioThread.shutDown();
-		setAdminClient(adminEndpoint);
+
 	}
 	
-	public void forceShutdown(Endpoint adminEndpoint) { // Skywalker style :-)
+	public void forceShutdown() { // Skywalker style :-)
 		log.warning("server force shutdown called");
 		forceShutdown=true; // this will send session stops to all the clients
 		ioThread.shutDown();
-		setAdminClient(adminEndpoint);
+
 	}
 	
-	public void vaderShutdown(Endpoint adminEndpoint) { // Darkside style :-]
+	public void vaderShutdown() { // Darkside style :-]
 		log.warning("server vader shutdown called");
 		vaderShutdown=true; // this will just close all of the endpoints abruptly
 		ioThread.shutDown();
-		setAdminClient(adminEndpoint);
+
 	}
 	
 	/**
@@ -351,15 +351,17 @@ public class ServerManager extends Manager implements ISessionProtocolHandler,
 	
 	private void verifyShutdown(Endpoint endpoint, String clientPW, String event) {
 		if (clientPW.equals(password)) {
+
+			setAdminClient(endpoint);
 			switch(event) {
 				case shutdownServer:
-					shutdown(endpoint);
+					shutdown();
 					break;
 				case forceShutdownServer:
-					forceShutdown(endpoint);
+					forceShutdown();
 					break;
 				case vaderShutdownServer:
-					vaderShutdown(endpoint);
+					vaderShutdown();
 					break;
 				default:
 					log.warning(  "Unknown shutdown event: " + event + " | " 

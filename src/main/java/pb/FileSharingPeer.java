@@ -306,6 +306,7 @@ public class FileSharingPeer {
 			 	Integer.parseInt((num));
 			 } catch (NumberFormatException e) {
 				 log.severe("Host IP not valid");
+				 break;
 			 }
 		}
 		try {
@@ -339,6 +340,7 @@ public class FileSharingPeer {
 				client.on(fileContents, (args2) -> {
 					String content = (String)args2[0];
 					if (content.equals("")) {
+						System.out.println("File downloaded: "+parts[2]);
 						log.info("File finished");
 						clientManager.shutdown();
 					}
