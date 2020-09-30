@@ -175,6 +175,7 @@ public class FileSharingPeer {
 			log.info("Sending index update: " + peerport + ":" + filename);
 			// an index update has the format: host:port:filename
 			endpoint.emit(IndexServer.indexUpdate, peerport + ":" + filename);
+			endpoint.emit(IndexServer.peerUpdate, peerport);
 			Utils.getInstance().setTimeout(() -> {
 				emitIndexUpdate(peerport, filenames, endpoint, clientManager);
 			}, 100); // send 10 index updates per second, this shouldn't kill the bandwidth :-]
@@ -216,7 +217,6 @@ public class FileSharingPeer {
 
 		}).on(PeerManager.peerError, (args)->{
 			log.severe("Peer Error");
-
 		});
 
 		clientManager.start();
