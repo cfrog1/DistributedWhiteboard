@@ -1,5 +1,10 @@
 package pb.app;
 
+import pb.Client;
+import pb.WhiteboardServer;
+import pb.managers.ClientManager;
+import pb.managers.PeerManager;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -10,6 +15,7 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -188,7 +194,14 @@ public class WhiteboardApp {
 	public WhiteboardApp(int peerPort,String whiteboardServerHost, 
 			int whiteboardServerPort) {
 		whiteboards=new HashMap<>();
-
+		//connect whiteboard server host
+		PeerManager peerManager = new PeerManager(peerPort);
+		try {
+			ClientManager clientManager = peerManager.connect(whiteboardServerPort, whiteboardServerHost);
+			clientManager.emit(WhiteboardServer.shareBoard, "hello world");
+		} catch (Exception e) {
+			// do something with these exceptions
+		}
 		show(peerport);
 		
 	}
@@ -279,6 +292,7 @@ public class WhiteboardApp {
 	
 	
 	// From whiteboard peer
+
 	
 	
 	

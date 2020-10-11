@@ -171,6 +171,7 @@ public class WhiteboardServer {
 
         //alternative approach
         serverManager.on(ServerManager.sessionStarted, (args3) -> {
+            System.out.println("HELLO WORLD");
             //Provide new client with all currently shared boards
             Endpoint client = (Endpoint) args3[0];
             synchronized (sharedBoards) {
@@ -178,6 +179,7 @@ public class WhiteboardServer {
             }
             //Client wants to share a board, share it to all other peers
             client.on(shareBoard, (args2) -> {
+                System.out.println("HELLO WORLD2");
                 String board = (String) args2[0];
                 // check error in board string host:port:boardID, potentially make its own function
                 String[] parts = board.split(":");
