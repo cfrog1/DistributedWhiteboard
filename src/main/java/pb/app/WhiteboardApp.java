@@ -281,12 +281,23 @@ public class WhiteboardApp {
 			String board = (String) args[0];
 			System.out.println(board);
 			//TODO: fix error here
-			if (!whiteboards.containsKey(board)) {
-				Whiteboard remoteBoard = new Whiteboard(board, true);
-				addBoard(remoteBoard, false);
+			synchronized (whiteboards) {
+				if (!whiteboards.containsKey(board)) {
+					Whiteboard remoteBoard = new Whiteboard(board, true);
+					addBoard(remoteBoard, false);
+				}
 			}
-
-		});
+		}).on(WhiteboardServer.unsharingBoard, (args -> {
+			String board = (String) args[0];
+			synchronized (whiteboards) {
+				if (whiteboards.containsKey(board)) {
+					Whiteboard whiteboard = whiteboards.get(board);
+					if (whiteboard.isRemote()) {
+						deleteBoard(board);
+					}
+				}
+			}
+		}));
 	}
 
 

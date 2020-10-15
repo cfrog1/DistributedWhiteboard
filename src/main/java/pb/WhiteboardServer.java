@@ -133,34 +133,6 @@ public class WhiteboardServer {
             serverManager = new ServerManager(port);
         }
 
-        /**
-         * TODO: DEAL WITH ERROR
-         */
-        /*
-        serverManager.on(shareBoard, (args2) -> {
-            String board = (String) args2[0];
-            // check error in board string host:port:boardID
-
-            synchronized (sharedBoards) {
-                sharedBoards.add(board);
-            }
-            serverManager.emit(sharingBoard, board);
-
-        }).on(unshareBoard, (args2) -> {
-            String board = (String) args2[0];
-            synchronized (sharedBoards) {
-                sharedBoards.remove(board);
-            }
-            serverManager.emit(unsharingBoard, board);
-
-        }).on(ServerManager.sessionStarted, (args3) -> {
-            Endpoint client = (Endpoint)args3[0];
-            synchronized (sharedBoards) {
-                sharedBoards.forEach(board -> client.emit(sharingBoard, board));
-            }
-        });
-        */
-
         //alternative approach
         serverManager.on(ServerManager.sessionStarted, (args1) -> {
             //Provide new client with all currently shared boards
@@ -203,8 +175,10 @@ public class WhiteboardServer {
             serverManager.on(sharingBoard, (args2) -> {
                 String board = (String)args2[0];
                 client.emit(sharingBoard, board);
+            }).on(unsharingBoard, (args2) -> {
+                String board = (String) args2[0];
+                client.emit(unsharingBoard, board);
             });
-
         });
 
 
