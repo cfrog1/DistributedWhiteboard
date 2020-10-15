@@ -4,14 +4,12 @@ import pb.WhiteboardServer;
 import pb.managers.ClientManager;
 import pb.managers.PeerManager;
 import pb.managers.endpoint.Endpoint;
-import pb.utils.Utils;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.Instant;
 import java.util.*;
-import java.util.Timer;
 import java.util.logging.Logger;
 
 
@@ -175,21 +173,23 @@ public class WhiteboardApp {
     public WhiteboardApp(int peerPort, String whiteboardServerHost,
                          int whiteboardServerPort) {
         whiteboards = new HashMap<>();
+        peerport = whiteboardServerHost + ":" + peerPort;
         System.out.println("peer port: " + peerPort);
         PeerManager peerManager = new PeerManager(peerPort);
         try {
             ClientManager clientManager = peerManager.connect(whiteboardServerPort, whiteboardServerHost);
-            clientManager.start();
             clientManager.on(PeerManager.peerStarted, (args) -> {
-				Endpoint endpoint = (Endpoint)args[0];
-				System.out.println("Connected to whiteboard server: "+endpoint.getOtherEndpointId());
-				endpoint.emit(WhiteboardServer.shareBoard, "hello world");
-			});
+                Endpoint endpoint = (Endpoint)args[0];
+                shareToggleEmit(endpoint);
+                listenForSharedBoards(endpoint);
+            });
+            show(peerport);
+            clientManager.start();
+            clientManager.join();
         } catch (Exception e) {
-        	//TODO: do something with this exception
+            System.out.println("EXCEPTION");
+            //TODO: do something with this exception
         }
-
-        show(peerport);
 
     }
 
@@ -253,6 +253,35 @@ public class WhiteboardApp {
         return parts[0];
     }
 
+    /******
+     *
+     * Methods called from events.
+     *
+     ******/
+
+    // From whiteboard server
+    private void listenForSharedBoards(Endpoint endpoint) {
+        endpoint.on(WhiteboardServer.shareBoard, (args) -> {
+            String board = (String) args[0];
+            System.out.println(board);
+            //TODO: fix error here
+            Whiteboard remoteBoard = new Whiteboard(board, true);
+            addBoard(remoteBoard, false);
+        });
+    }
+
+
+    // From whiteboard peer
+    private void shareToggleEmit(Endpoint endpoint) {
+        sharedCheckbox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                endpoint.emit(WhiteboardServer.shareBoard, selectedBoard.getName());
+            } else {
+                endpoint.emit(WhiteboardServer.unshareBoard, selectedBoard.getName());
+            }
+        });
+    }
+
     /**
      * @param data = peer:port:boardid%version%PATHS
      * @return port
@@ -261,17 +290,6 @@ public class WhiteboardApp {
         String[] parts = data.split(":");
         return Integer.parseInt(parts[1]);
     }
-
-    /******
-     *
-     * Methods called from events.
-     *
-     ******/
-
-    // From whiteboard server
-
-
-    // From whiteboard peer
 
 
     /******

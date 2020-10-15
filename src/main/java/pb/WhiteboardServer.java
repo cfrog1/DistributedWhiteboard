@@ -88,14 +88,6 @@ public class WhiteboardServer {
 
     public static final List<String> sharedBoards = new ArrayList<String>(); //TODO methods to access this need to be synchronized
 
-/*    private synchronized void addBoard(String boardID) {
-        sharedBoards.add(boardID);
-    }
-
-    private synchronized void removeBoard(String boardID) {
-        sharedBoards.remove(boardID);
-    } */
-
     private static void help(Options options) {
         String header = "PB Whiteboard Server for Unimelb COMP90015\n\n";
         String footer = "\ncontact aharwood@unimelb.edu.au for issues.";
@@ -172,14 +164,13 @@ public class WhiteboardServer {
         //alternative approach
         serverManager.on(ServerManager.sessionStarted, (args3) -> {
             //Provide new client with all currently shared boards
-            System.out.println("HELLO WORLD1");
             Endpoint client = (Endpoint) args3[0];
+            System.out.println("Hello World");
             synchronized (sharedBoards) {
                 sharedBoards.forEach(board -> client.emit(sharingBoard, board));
             }
             //Client wants to share a board, share it to all other peers
             client.on(shareBoard, (args2) -> {
-                System.out.println("HELLO WORLD2");
                 System.out.println("args: " + args2[0]);
                 String board = (String) args2[0];
                 System.out.println(board);
@@ -195,6 +186,7 @@ public class WhiteboardServer {
                 }
                 //Client wants to unshare a board, unshare to all other peers
             }).on(unshareBoard, (args2) -> {
+                System.out.println("args: " + args2[0]);
                 String board = (String) args2[0];
                 // check error in board string host:port:boardID
                 String[] parts = board.split(":");
