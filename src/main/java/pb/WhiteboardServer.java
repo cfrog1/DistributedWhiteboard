@@ -162,9 +162,9 @@ public class WhiteboardServer {
         */
 
         //alternative approach
-        serverManager.on(ServerManager.sessionStarted, (args3) -> {
+        serverManager.on(ServerManager.sessionStarted, (args1) -> {
             //Provide new client with all currently shared boards
-            Endpoint client = (Endpoint) args3[0];
+            Endpoint client = (Endpoint) args1[0];
             System.out.println("Hello World");
             synchronized (sharedBoards) {
                 sharedBoards.forEach(board -> client.emit(sharingBoard, board));
@@ -199,6 +199,12 @@ public class WhiteboardServer {
                     serverManager.emit(unsharingBoard, board);
                 }
             });
+
+            serverManager.on(sharingBoard, (args2) -> {
+                String board = (String)args2[0];
+                client.emit(sharingBoard, board);
+            });
+
         });
 
 
