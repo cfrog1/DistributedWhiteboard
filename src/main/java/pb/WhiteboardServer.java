@@ -15,6 +15,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 
+import pb.managers.PeerManager;
 import pb.managers.ServerManager;
 import pb.managers.endpoint.Endpoint;
 import pb.utils.Utils;
@@ -133,19 +134,21 @@ public class WhiteboardServer {
             serverManager = new ServerManager(port);
         }
 
-        //alternative approach
+
         serverManager.on(ServerManager.sessionStarted, (args1) -> {
+
             //Provide new client with all currently shared boards
             Endpoint client = (Endpoint) args1[0];
-            System.out.println("Hello World");
             synchronized (sharedBoards) {
                 sharedBoards.forEach(board -> client.emit(sharingBoard, board));
             }
+
+            //CLIENT EVENT LISTENERS
             //Client wants to share a board, share it to all other peers
             client.on(shareBoard, (args2) -> {
-                System.out.println("args: " + args2[0]);
                 String board = (String) args2[0];
                 System.out.println(board);
+
                 // check error in board string host:port:boardID, potentially make its own function
                 String[] parts = board.split(":");
                 if (parts.length != 3) {
@@ -156,6 +159,7 @@ public class WhiteboardServer {
                     }
                     serverManager.emit(sharingBoard, board);
                 }
+
                 //Client wants to unshare a board, unshare to all other peers
             }).on(unshareBoard, (args2) -> {
                 System.out.println("args: " + args2[0]);
@@ -172,6 +176,7 @@ public class WhiteboardServer {
                 }
             });
 
+            //SERVERMANAGER LISTENERS
             serverManager.on(sharingBoard, (args2) -> {
                 String board = (String)args2[0];
                 client.emit(sharingBoard, board);

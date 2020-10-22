@@ -3,11 +3,13 @@ package pb.app;
 import pb.WhiteboardServer;
 import pb.managers.ClientManager;
 import pb.managers.PeerManager;
+import pb.managers.ServerManager;
 import pb.managers.endpoint.Endpoint;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.*;
 import java.util.logging.Logger;
@@ -170,24 +172,100 @@ public class WhiteboardApp {
 	/**
 	 * Initialize the white board app.
 	 */
+
+	//TODO: make sure that all peerStarted events also have peerStopped, peerError etc.
 	public WhiteboardApp(int peerPort, String whiteboardServerHost,
 						 int whiteboardServerPort) {
 		whiteboards = new HashMap<>();
 		peerport = whiteboardServerHost + ":" + peerPort;
 		System.out.println("peer port: " + peerPort);
 		PeerManager peerManager = new PeerManager(peerPort);
+
+		//Connect to server
 		try {
 			ClientManager clientManager = peerManager.connect(whiteboardServerPort, whiteboardServerHost);
 			clientManager.on(PeerManager.peerStarted, (args) -> {
 				Endpoint endpoint = (Endpoint)args[0];
-				shareToggleEmit(endpoint);
-				listenForSharedBoards(endpoint);
+				shareToggleEmit(endpoint); //Set up events for when 'shared' is checked on a local whiteboard
+				System.out.println("Connected to server");
+
+				//When a sharingBoard event is received, connect to the board's owner
+				endpoint.on(WhiteboardServer.sharingBoard, (args2) -> {
+					String board = (String) args2[0];
+					System.out.println("Received sharingBoard event: "+board);
+					if (!whiteboards.containsKey(board)) {
+						try {
+							ClientManager clientPeerManager = peerManager.connect(getPort(board), getIP(board));
+
+							//When connected to board's owner, setup listeners for updates
+							clientPeerManager.on(PeerManager.peerStarted, (args3) -> {
+								Endpoint client = (Endpoint)args3[0];
+								System.out.println("Connected to peer: "+client.getOtherEndpointId());
+								client.on(boardData, (args4) -> {
+									String boardData = (String)args4[0];
+									System.out.println("Received full board data for board: "+getBoardName(boardData));
+									Whiteboard whiteboard = new Whiteboard("new", true);
+									whiteboard.whiteboardFromString(getBoardName(boardData), getBoardData(boardData));
+									addBoard(whiteboard, false);
+									client.emit(listenBoard, whiteboard.getName());
+								}); //TODO: also put other update listeners here
+
+								client.emit(getBoardData, board);
+								System.out.println("Requested full board data for: "+board);
+							});
+
+							clientPeerManager.start();
+
+						} catch (UnknownHostException e) {
+							e.printStackTrace();
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+
+					}
+					//When an unsharingBoard event is received, remove it from out list of boards
+				}).on(WhiteboardServer.unsharingBoard, (args3 -> {
+					String board = (String) args3[0];
+					synchronized (whiteboards) {
+						if (whiteboards.containsKey(board)) {
+							Whiteboard whiteboard = whiteboards.get(board);
+							if (whiteboard.isRemote()) {
+								deleteBoard(board);
+							}
+						}
+					}
+				}));
 			});
+
+			//The whiteboard's server events
+			peerManager.on(PeerManager.peerServerManager, (args) -> {
+				ServerManager serverManager = (ServerManager)args[0];
+
+				//When a peer connects, listen to any events they send
+				serverManager.on(ServerManager.sessionStarted, (args2) -> {
+					Endpoint client = (Endpoint)args2[0];
+					System.out.println("Peer has connected from: "+client.getOtherEndpointId());
+
+					//When getBoardData is received, send all data about the board back to the peer.
+					client.on(getBoardData, (args3) -> {
+						String board = (String)args3[0];
+						System.out.println("getBoardData request received about board: "+board);
+						Whiteboard requestedBoard = whiteboards.get(board);
+						client.emit(boardData, requestedBoard.toString());
+						System.out.println("Board data emitted to peer: "+client.getOtherEndpointId());
+
+					}); //TODO: set up server response to listenBoard event (add to a list of listening endpoints for that specific board).
+				});
+
+			});
+
 			show(peerport);
+			peerManager.start();
 			clientManager.start();
 			clientManager.join();
+			peerManager.joinWithClientManagers(); //??? Not sure about the correct shutdown behaviour
 		} catch (Exception e) {
-			System.out.println("EXCEPTION");
+			e.printStackTrace();
 			//TODO: do something with this exception
 		}
 
@@ -276,29 +354,7 @@ public class WhiteboardApp {
 	 ******/
 
 	// From whiteboard server
-	private void listenForSharedBoards(Endpoint endpoint) {
-		endpoint.on(WhiteboardServer.sharingBoard, (args) -> {
-			String board = (String) args[0];
-			System.out.println(board);
-			//TODO: fix error here
-			synchronized (whiteboards) {
-				if (!whiteboards.containsKey(board)) {
-					Whiteboard remoteBoard = new Whiteboard(board, true);
-					addBoard(remoteBoard, false);
-				}
-			}
-		}).on(WhiteboardServer.unsharingBoard, (args -> {
-			String board = (String) args[0];
-			synchronized (whiteboards) {
-				if (whiteboards.containsKey(board)) {
-					Whiteboard whiteboard = whiteboards.get(board);
-					if (whiteboard.isRemote()) {
-						deleteBoard(board);
-					}
-				}
-			}
-		}));
-	}
+
 
 
 	// From whiteboard peer
@@ -306,6 +362,7 @@ public class WhiteboardApp {
 		sharedCheckbox.addItemListener(e -> {
 			if (e.getStateChange() == ItemEvent.SELECTED) {
 				endpoint.emit(WhiteboardServer.shareBoard, selectedBoard.getName());
+				System.out.println("shareBoard event emitted to server");
 			} else {
 				endpoint.emit(WhiteboardServer.unshareBoard, selectedBoard.getName());
 			}
@@ -344,7 +401,7 @@ public class WhiteboardApp {
 	 * Delete a board from the list.
 	 * @param boardname must have the form peer:port:boardid
 	 */
-	public void deleteBoard(String boardname) {
+	public void deleteBoard(String boardname) { //TODO: if remote, unlisten board (I think)
 		synchronized(whiteboards) {
 			Whiteboard whiteboard = whiteboards.get(boardname);
 			if(whiteboard!=null) {
