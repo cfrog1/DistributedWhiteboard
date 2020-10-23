@@ -140,35 +140,36 @@ public class WhiteboardApp {
 	 * </ul>
 	 */
 	public static final String boardError = "BOARD_ERROR";
-	
+
 	/**
-	 * White board map from board name to board object 
+	 * White board map from board name to board object
 	 */
 	Map<String,Whiteboard> whiteboards;
-	
+
 	/**
 	 * The currently selected white board
 	 */
 	Whiteboard selectedBoard = null;
-	
+
 	/**
 	 * The peer:port string of the peer. This is synonomous with IP:port, host:port,
 	 * etc. where it may appear in comments.
 	 */
 	String peerport="standalone"; // a default value for the non-distributed version
-	
+
 	/*
 	 * GUI objects, you probably don't need to modify these things... you don't
 	 * need to modify these things... don't modify these things [LOTR reference?].
 	 */
-	
+
 	JButton clearBtn, blackBtn, redBtn, createBoardBtn, deleteBoardBtn, undoBtn;
 	JCheckBox sharedCheckbox ;
 	DrawArea drawArea;
 	JComboBox<String> boardComboBox;
 	boolean modifyingComboBox=false;
 	boolean modifyingCheckBox=false;
-	
+	PeerManager peerManager;
+
 	/**
 	 * Initialize the white board app.
 	 */
@@ -179,18 +180,18 @@ public class WhiteboardApp {
 		whiteboards = new HashMap<>();
 		peerport = whiteboardServerHost + ":" + peerPort;
 		System.out.println("peer port: " + peerPort);
-		PeerManager peerManager = new PeerManager(peerPort);
+		peerManager = new PeerManager(peerPort);
 
 		//Connect to server
 		try {
 			ClientManager clientManager = peerManager.connect(whiteboardServerPort, whiteboardServerHost);
 			clientManager.on(PeerManager.peerStarted, (args) -> {
-				Endpoint endpoint = (Endpoint)args[0];
-				shareToggleEmit(endpoint); //Set up events for when 'shared' is checked on a local whiteboard
+				Endpoint whiteBoardServerEndpoint = (Endpoint)args[0];
+				shareToggleEmit(whiteBoardServerEndpoint); //Set up events for when 'shared' is checked on a local whiteboard
 				System.out.println("Connected to server");
 
 				//When a sharingBoard event is received, connect to the board's owner
-				endpoint.on(WhiteboardServer.sharingBoard, (args2) -> {
+				whiteBoardServerEndpoint.on(WhiteboardServer.sharingBoard, (args2) -> {
 					String board = (String) args2[0];
 					System.out.println("Received sharingBoard event: "+board);
 					if (!whiteboards.containsKey(board)) {
@@ -199,19 +200,30 @@ public class WhiteboardApp {
 
 							//When connected to board's owner, setup listeners for updates
 							clientPeerManager.on(PeerManager.peerStarted, (args3) -> {
-								Endpoint client = (Endpoint)args3[0];
-								System.out.println("Connected to peer: "+client.getOtherEndpointId());
-								client.on(boardData, (args4) -> {
+								Endpoint boardOwnerEndpoint = (Endpoint)args3[0];
+								System.out.println("Connected to peer: "+boardOwnerEndpoint.getOtherEndpointId());
+								boardOwnerEndpoint.on(boardData, (args4) -> {
 									String boardData = (String)args4[0];
 									System.out.println("Received full board data for board: "+getBoardName(boardData));
 									Whiteboard whiteboard = new Whiteboard("new", true);
 									whiteboard.whiteboardFromString(getBoardName(boardData), getBoardData(boardData));
 									addBoard(whiteboard, false);
-									client.emit(listenBoard, whiteboard.getName());
+									boardOwnerEndpoint.emit(listenBoard, whiteboard.getName());
 								}); //TODO: also put other update listeners here
-
-								client.emit(getBoardData, board);
+								boardOwnerEndpoint.emit(getBoardData, board);
 								System.out.println("Requested full board data for: "+board);
+
+								peerManager.on(WhiteboardApp.boardPathUpdate, (args4) -> {
+									System.out.println("PEER MANAGER RECEIVED BOARD UPDATE");
+									String updateDetails = (String) args4[0];
+									boardOwnerEndpoint.emit(WhiteboardApp.boardPathUpdate, updateDetails);
+								});
+								boardOwnerEndpoint.on(boardPathAccepted, (updateDetailArgs) -> {
+									System.out.println("UPDATE ACCEPTANCE RECIEVED");
+									String updateDetails = (String) updateDetailArgs[0];
+									Whiteboard updatedBoard = whiteboards.get(getBoardName(updateDetails));
+									updatedBoard.addPath(new WhiteboardPath(getBoardPaths(updateDetails)), getBoardVersion(updateDetails));
+								});
 							});
 
 							clientPeerManager.start();
@@ -245,6 +257,11 @@ public class WhiteboardApp {
 				serverManager.on(ServerManager.sessionStarted, (args2) -> {
 					Endpoint client = (Endpoint)args2[0];
 					System.out.println("Peer has connected from: "+client.getOtherEndpointId());
+					serverManager.on(boardPathAccepted, (args5) -> {
+						System.out.println("EMITTING UPDATE ACCEPTANCE");
+						String updateDetails = (String) args5[0];
+						client.emit(boardPathAccepted, updateDetails);
+					});
 
 					//When getBoardData is received, send all data about the board back to the peer.
 					client.on(getBoardData, (args3) -> {
@@ -254,9 +271,16 @@ public class WhiteboardApp {
 						client.emit(boardData, requestedBoard.toString());
 						System.out.println("Board data emitted to peer: "+client.getOtherEndpointId());
 
+					}).on(WhiteboardApp.boardPathUpdate, (args4) -> {
+						System.out.println("RECEIVED BOARD UPDATE AS A SERVER");
+						// "host:port:boardid%version%PATH"
+						String updateDetails = (String) args4[0];
+						Whiteboard updatedBoard = whiteboards.get(getBoardName(updateDetails));
+						if (updatedBoard.addPath(new WhiteboardPath(getBoardPaths(updateDetails)), getBoardVersion(updateDetails))) {
+							serverManager.emit(boardPathAccepted, updateDetails);
+						}
 					}); //TODO: set up server response to listenBoard event (add to a list of listening endpoints for that specific board).
 				});
-
 			});
 
 			show(peerport);
@@ -270,15 +294,15 @@ public class WhiteboardApp {
 		}
 
 	}
-	
+
 	/******
-	 * 
+	 *
 	 * Utility methods to extract fields from argument strings.
-	 * 
+	 *
 	 ******/
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return peer:port:boardid
 	 */
@@ -286,9 +310,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",2);
 		return parts[0];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return boardid%version%PATHS
 	 */
@@ -296,9 +320,9 @@ public class WhiteboardApp {
 		String[] parts=data.split(":");
 		return parts[2];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return version%PATHS
 	 */
@@ -306,9 +330,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",2);
 		return parts[1];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return version
 	 */
@@ -316,9 +340,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",3);
 		return Long.parseLong(parts[1]);
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return PATHS
 	 */
@@ -326,9 +350,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",3);
 		return parts[2];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return peer
 	 */
@@ -336,9 +360,9 @@ public class WhiteboardApp {
 		String[] parts=data.split(":");
 		return parts[0];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return port
 	 */
@@ -346,18 +370,14 @@ public class WhiteboardApp {
 		String[] parts=data.split(":");
 		return Integer.parseInt(parts[1]);
 	}
-	
+
 	/******
-	 * 
+	 *
 	 * Methods called from events.
-	 * 
+	 *
 	 ******/
 
 	// From whiteboard server
-
-
-
-	// From whiteboard peer
 	private void shareToggleEmit(Endpoint endpoint) {
 		sharedCheckbox.addItemListener(e -> {
 			if (e.getStateChange() == ItemEvent.SELECTED) {
@@ -368,22 +388,26 @@ public class WhiteboardApp {
 			}
 		});
 	}
-	
-	
+
+
+	// From whiteboard peer
+
+
+
 	/******
-	 * 
+	 *
 	 * Methods to manipulate data locally. Distributed systems related code has been
 	 * cut from these methods.
-	 * 
+	 *
 	 ******/
-	
+
 	/**
 	 * Wait for the peer manager to finish all threads.
 	 */
 	public void waitToFinish() {
-		
+
 	}
-	
+
 	/**
 	 * Add a board to the list that the user can select from. If select is
 	 * true then also select this board.
@@ -396,7 +420,7 @@ public class WhiteboardApp {
 		}
 		updateComboBox(select?whiteboard.getName():null);
 	}
-	
+
 	/**
 	 * Delete a board from the list.
 	 * @param boardname must have the form peer:port:boardid
@@ -410,7 +434,7 @@ public class WhiteboardApp {
 		}
 		updateComboBox(null);
 	}
-	
+
 	/**
 	 * Create a new local board with name peer:port:boardid.
 	 * The boardid includes the time stamp that the board was created at.
@@ -420,7 +444,7 @@ public class WhiteboardApp {
 		Whiteboard whiteboard = new Whiteboard(name,false);
 		addBoard(whiteboard,true);
 	}
-	
+
 	/**
 	 * Add a path to the selected board. The path has already
 	 * been drawn on the draw area; so if it can't be accepted then
@@ -433,14 +457,17 @@ public class WhiteboardApp {
 				// some other peer modified the board in between
 				drawSelectedWhiteboard(); // just redraw the screen without the path
 			} else {
+				// emit in this format: "host:port:boardid%version%PATH"
+				String update = selectedBoard.getNameAndVersion() + "%" + currentPath;
+				peerManager.emit(WhiteboardApp.boardPathUpdate, update);
+				System.out.println("EMITTING A BOARD UPDATE");
 				// was accepted locally, so do remote stuff if needed
-				
 			}
 		} else {
 			log.severe("path created without a selected board: "+currentPath);
 		}
 	}
-	
+
 	/**
 	 * Clear the selected whiteboard.
 	 */
@@ -451,14 +478,14 @@ public class WhiteboardApp {
 				drawSelectedWhiteboard();
 			} else {
 				// was accepted locally, so do remote stuff if needed
-				
+
 				drawSelectedWhiteboard();
 			}
 		} else {
 			log.severe("cleared without a selected board");
 		}
 	}
-	
+
 	/**
 	 * Undo the last path of the selected whiteboard.
 	 */
@@ -468,14 +495,14 @@ public class WhiteboardApp {
 				// some other peer modified the board in between
 				drawSelectedWhiteboard();
 			} else {
-				
+
 				drawSelectedWhiteboard();
 			}
 		} else {
 			log.severe("undo without a selected board");
 		}
 	}
-	
+
 	/**
 	 * The variable selectedBoard has been set.
 	 */
@@ -483,7 +510,7 @@ public class WhiteboardApp {
 		drawSelectedWhiteboard();
 		log.info("selected board: "+selectedBoard.getName());
 	}
-	
+
 	/**
 	 * Set the share status on the selected board.
 	 */
