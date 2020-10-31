@@ -248,6 +248,17 @@ public class WhiteboardApp {
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
+								}).on(boardUndoAccepted, (args6) -> {
+									String undoUpdate = (String)args6[0];
+									Whiteboard whiteboard = whiteboards.get(getBoardName(undoUpdate));
+									long oldVersion = getBoardVersion(undoUpdate);
+
+									if (!whiteboard.undo(oldVersion)) {
+										client.emit(getBoardData, getBoardName(undoUpdate));
+									}
+									if (whiteboard.equals(selectedBoard)) {
+										drawSelectedWhiteboard();
+									}
 								}); //TODO: also put other update listeners here
 
 								client.emit(getBoardData, board);
@@ -329,6 +340,21 @@ public class WhiteboardApp {
 								for (Endpoint endpoint : boardEndpoints.get(getBoardName(clearUpdate))) {
 									// emits: "host:port:boardid%version%"
 									endpoint.emit(boardClearAccepted, clearUpdate);
+								}
+							}
+						}
+						if (whiteboard.equals(selectedBoard)) {
+							drawSelectedWhiteboard();
+						}
+					}).on(boardUndoUpdate, (args6) -> {
+						String undoUpdate = (String) args6[0];
+						Whiteboard whiteboard = whiteboards.get(getBoardName(undoUpdate));
+						long oldVersion = getBoardVersion(undoUpdate);
+						if (whiteboard.undo(oldVersion)) {
+							if (boardEndpoints.containsKey(getBoardName(undoUpdate))){
+								for (Endpoint endpoint : boardEndpoints.get(getBoardName(undoUpdate))) {
+									// emits: "host:port:boardid%version%"
+									endpoint.emit(boardUndoAccepted, undoUpdate);
 								}
 							}
 						}
@@ -577,7 +603,20 @@ public class WhiteboardApp {
 				// some other peer modified the board in between
 				drawSelectedWhiteboard();
 			} else {
-				
+				long oldVersion = selectedBoard.getVersion() - 1;
+				// update update format: "host:port:boardid%version%"
+				String undoUpdate = selectedBoard.getName() + "%" + oldVersion + "%";
+				if(selectedBoard.isRemote()) {
+					Endpoint peer = boardServerEndpoints.get(selectedBoard.getName());
+					peer.emit(boardUndoUpdate, undoUpdate);
+				}
+				else {
+					if (boardEndpoints.containsKey(selectedBoard.getName())) {
+						for (Endpoint endpoint : boardEndpoints.get(selectedBoard.getName())) {
+							endpoint.emit(boardUndoAccepted, undoUpdate);
+						}
+					}
+				}
 				drawSelectedWhiteboard();
 			}
 		} else {
