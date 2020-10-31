@@ -237,6 +237,17 @@ public class WhiteboardApp {
 									}
 
 
+								}).on(boardClearAccepted, (args6) -> {
+									String clearUpdate = (String)args6[0];
+									Whiteboard whiteboard = whiteboards.get(getBoardName(clearUpdate));
+									long oldVersion = getBoardVersion(clearUpdate);
+
+									if (!whiteboard.clear(oldVersion)) {
+										client.emit(getBoardData, getBoardName(clearUpdate));
+									}
+									if (whiteboard.equals(selectedBoard)) {
+										drawSelectedWhiteboard();
+									}
 								}); //TODO: also put other update listeners here
 
 								client.emit(getBoardData, board);
@@ -306,7 +317,24 @@ public class WhiteboardApp {
 							}
 
 						}
-						drawSelectedWhiteboard();
+						if (whiteboard.equals(selectedBoard)) {
+							drawSelectedWhiteboard();
+						}
+					}).on(boardClearUpdate, (args6) -> {
+						String clearUpdate = (String) args6[0];
+						Whiteboard whiteboard = whiteboards.get(getBoardName(clearUpdate));
+						long oldVersion = getBoardVersion(clearUpdate);
+						if (whiteboard.clear(oldVersion)) {
+							if (boardEndpoints.containsKey(getBoardName(clearUpdate))){
+								for (Endpoint endpoint : boardEndpoints.get(getBoardName(clearUpdate))) {
+									// emits: "host:port:boardid%version%"
+									endpoint.emit(boardClearAccepted, clearUpdate);
+								}
+							}
+						}
+						if (whiteboard.equals(selectedBoard)) {
+							drawSelectedWhiteboard();
+						}
 					}); //TODO: set up server response to listenBoard event (add to a list of listening endpoints for that specific board).
 				});
 
@@ -519,7 +547,20 @@ public class WhiteboardApp {
 				drawSelectedWhiteboard();
 			} else {
 				// was accepted locally, so do remote stuff if needed
-				
+				long oldVersion = selectedBoard.getVersion() - 1;
+				//host:port:boardid%version%
+				String clearUpdate = selectedBoard.getName() + "%" + oldVersion + "%";
+				if(selectedBoard.isRemote()) {
+					Endpoint peer = boardServerEndpoints.get(selectedBoard.getName());
+					peer.emit(boardClearUpdate, clearUpdate);
+				}
+				else {
+					if (boardEndpoints.containsKey(selectedBoard.getName())) {
+						for (Endpoint endpoint : boardEndpoints.get(selectedBoard.getName())) {
+							endpoint.emit(boardClearAccepted, clearUpdate);
+						}
+					}
+				}
 				drawSelectedWhiteboard();
 			}
 		} else {

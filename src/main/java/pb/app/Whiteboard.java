@@ -103,7 +103,7 @@ public class Whiteboard {
 	}
 	
 	/**
-	 * Draw the white board on the drawing area. Clears the draw
+	 * Draw the white board on the drawing area. Clears the drawgi
 	 * area and draws all paths.
 	 * @param drawArea
 	 */
