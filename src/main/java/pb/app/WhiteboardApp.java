@@ -12,6 +12,7 @@ import java.awt.event.*;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.*;
+import java.util.List;
 import java.util.logging.Logger;
 
 
@@ -145,6 +146,10 @@ public class WhiteboardApp {
 	 * White board map from board name to board object 
 	 */
 	Map<String,Whiteboard> whiteboards;
+
+	Map<String, List<Endpoint>> boardEndpoints;
+
+	Map<String, Endpoint> boardServerEndpoints;
 	
 	/**
 	 * The currently selected white board
@@ -177,6 +182,8 @@ public class WhiteboardApp {
 	public WhiteboardApp(int peerPort, String whiteboardServerHost,
 						 int whiteboardServerPort) {
 		whiteboards = new HashMap<>();
+		boardEndpoints = new HashMap<>();
+		boardServerEndpoints = new HashMap<>();
 		peerport = whiteboardServerHost + ":" + peerPort;
 		System.out.println("peer port: " + peerPort);
 		PeerManager peerManager = new PeerManager(peerPort);
@@ -200,14 +207,28 @@ public class WhiteboardApp {
 							//When connected to board's owner, setup listeners for updates
 							clientPeerManager.on(PeerManager.peerStarted, (args3) -> {
 								Endpoint client = (Endpoint)args3[0];
+								boardServerEndpoints.put(board, client);
 								System.out.println("Connected to peer: "+client.getOtherEndpointId());
+
 								client.on(boardData, (args4) -> {
 									String boardData = (String)args4[0];
 									System.out.println("Received full board data for board: "+getBoardName(boardData));
-									Whiteboard whiteboard = new Whiteboard("new", true);
+									Whiteboard whiteboard = new Whiteboard(getBoardName(boardData), true);
 									whiteboard.whiteboardFromString(getBoardName(boardData), getBoardData(boardData));
 									addBoard(whiteboard, false);
+									System.out.println("version: "+whiteboard.getVersion());
 									client.emit(listenBoard, whiteboard.getName());
+
+								}).on(boardPathAccepted, (args5) -> {
+									String pathUpdate = (String)args5[0];
+									System.out.println("Received new path update from board owner: "+pathUpdate);
+									Whiteboard whiteboard = whiteboards.get(getBoardName(pathUpdate));
+									WhiteboardPath newPath = new WhiteboardPath(getBoardPaths(pathUpdate));
+									long oldVersion = getBoardVersion(pathUpdate);
+									if (!whiteboard.addPath(newPath, oldVersion)) {
+										client.emit(getBoardData, getBoardName(pathUpdate));
+									}
+
 								}); //TODO: also put other update listeners here
 
 								client.emit(getBoardData, board);
@@ -254,6 +275,24 @@ public class WhiteboardApp {
 						client.emit(boardData, requestedBoard.toString());
 						System.out.println("Board data emitted to peer: "+client.getOtherEndpointId());
 
+					}).on(listenBoard, (args4) -> {
+						String board = (String)args4[0];
+						System.out.println("Peer wants to listen to updates for board: "+board);
+						boardEndpoints.putIfAbsent(board, new ArrayList<>());
+						boardEndpoints.get(board).add(client);
+						System.out.println("Endpoint added to board");
+
+					}).on(boardPathUpdate, (args5) -> {
+						String pathUpdate = (String)args5[0];
+						System.out.println("path update request received: "+pathUpdate);
+						Whiteboard whiteboard = whiteboards.get(getBoardName(pathUpdate));
+						String newPath = getBoardPaths(pathUpdate);
+						long oldVersion = getBoardVersion(pathUpdate);
+						if (whiteboard.addPath(new WhiteboardPath(newPath), oldVersion)) {
+							for (Endpoint endpoint : boardEndpoints.get(getBoardName(pathUpdate))) {
+								endpoint.emit(boardPathAccepted, pathUpdate);
+							}
+						}
 					}); //TODO: set up server response to listenBoard event (add to a list of listening endpoints for that specific board).
 				});
 
@@ -434,6 +473,21 @@ public class WhiteboardApp {
 				drawSelectedWhiteboard(); // just redraw the screen without the path
 			} else {
 				// was accepted locally, so do remote stuff if needed
+				long oldVersion = selectedBoard.getVersion() - 1;
+				String pathUpdate = selectedBoard.getName() + "%" + oldVersion + "%" + currentPath.toString();
+				if(selectedBoard.isRemote()) {
+					Endpoint peer = boardServerEndpoints.get(selectedBoard.getName());
+					peer.emit(boardPathUpdate, pathUpdate);
+					//host:port:boardid%version%PATH
+				}
+				else {
+					if (boardEndpoints.containsKey(selectedBoard.getName())) {
+						for (Endpoint endpoint : boardEndpoints.get(selectedBoard.getName())) {
+							endpoint.emit(boardPathAccepted, pathUpdate);
+						}
+					}
+				}
+
 				
 			}
 		} else {
