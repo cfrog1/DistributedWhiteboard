@@ -147,7 +147,7 @@ public class WhiteboardApp {
 	 */
 	Map<String,Whiteboard> whiteboards;
 
-	Map<String, List<Endpoint>> boardEndpoints;
+	Map<String, Set<Endpoint>> boardEndpoints;
 
 	Map<String, Endpoint> boardServerEndpoints;
 	
@@ -216,6 +216,9 @@ public class WhiteboardApp {
 									Whiteboard whiteboard = new Whiteboard(getBoardName(boardData), true);
 									whiteboard.whiteboardFromString(getBoardName(boardData), getBoardData(boardData));
 									addBoard(whiteboard, false);
+									if (whiteboard.equals(selectedBoard)) {
+										drawSelectedWhiteboard();
+									}
 									System.out.println("version: "+whiteboard.getVersion());
 									client.emit(listenBoard, whiteboard.getName());
 
@@ -225,9 +228,14 @@ public class WhiteboardApp {
 									Whiteboard whiteboard = whiteboards.get(getBoardName(pathUpdate));
 									WhiteboardPath newPath = new WhiteboardPath(getBoardPaths(pathUpdate));
 									long oldVersion = getBoardVersion(pathUpdate);
+
 									if (!whiteboard.addPath(newPath, oldVersion)) {
 										client.emit(getBoardData, getBoardName(pathUpdate));
 									}
+									if (whiteboard.equals(selectedBoard)) {
+										drawSelectedWhiteboard();
+									}
+
 
 								}); //TODO: also put other update listeners here
 
@@ -278,7 +286,7 @@ public class WhiteboardApp {
 					}).on(listenBoard, (args4) -> {
 						String board = (String)args4[0];
 						System.out.println("Peer wants to listen to updates for board: "+board);
-						boardEndpoints.putIfAbsent(board, new ArrayList<>());
+						boardEndpoints.putIfAbsent(board, new HashSet<>());
 						boardEndpoints.get(board).add(client);
 						System.out.println("Endpoint added to board");
 
@@ -288,11 +296,17 @@ public class WhiteboardApp {
 						Whiteboard whiteboard = whiteboards.get(getBoardName(pathUpdate));
 						String newPath = getBoardPaths(pathUpdate);
 						long oldVersion = getBoardVersion(pathUpdate);
+						System.out.println("version from path update: "+oldVersion);
+						System.out.println("version of actual board: "+whiteboard.getVersion());
 						if (whiteboard.addPath(new WhiteboardPath(newPath), oldVersion)) {
-							for (Endpoint endpoint : boardEndpoints.get(getBoardName(pathUpdate))) {
-								endpoint.emit(boardPathAccepted, pathUpdate);
+							if (boardEndpoints.containsKey(getBoardName(pathUpdate))){
+								for (Endpoint endpoint : boardEndpoints.get(getBoardName(pathUpdate))) {
+									endpoint.emit(boardPathAccepted, pathUpdate);
+								}
 							}
+
 						}
+						drawSelectedWhiteboard();
 					}); //TODO: set up server response to listenBoard event (add to a list of listening endpoints for that specific board).
 				});
 
