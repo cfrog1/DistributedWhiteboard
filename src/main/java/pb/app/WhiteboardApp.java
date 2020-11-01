@@ -194,12 +194,12 @@ public class WhiteboardApp {
 			clientManager.on(PeerManager.peerStarted, (args) -> {
 				Endpoint endpoint = (Endpoint)args[0];
 				shareToggleEmit(endpoint); //Set up events for when 'shared' is checked on a local whiteboard
-				System.out.println("Connected to server");
+				log.info("Connected to server");
 
 				//When a sharingBoard event is received, connect to the board's owner
 				endpoint.on(WhiteboardServer.sharingBoard, (args2) -> {
 					String board = (String) args2[0];
-					System.out.println("Received sharingBoard event: "+board);
+					log.info("Received sharingBoard event: "+board);
 					if (!whiteboards.containsKey(board)) {
 						try {
 							ClientManager clientPeerManager = peerManager.connect(getPort(board), getIP(board));
@@ -208,23 +208,22 @@ public class WhiteboardApp {
 							clientPeerManager.on(PeerManager.peerStarted, (args3) -> {
 								Endpoint client = (Endpoint)args3[0];
 								boardServerEndpoints.put(board, client);
-								System.out.println("Connected to peer: "+client.getOtherEndpointId());
+								log.info("Connected to peer: "+client.getOtherEndpointId());
 
 								client.on(boardData, (args4) -> {
 									String boardData = (String)args4[0];
-									System.out.println("Received full board data for board: "+getBoardName(boardData));
+									log.info("Received full board data for board: "+getBoardName(boardData));
 									Whiteboard whiteboard = new Whiteboard(getBoardName(boardData), true);
 									whiteboard.whiteboardFromString(getBoardName(boardData), getBoardData(boardData));
 									addBoard(whiteboard, false);
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
-									System.out.println("version: "+whiteboard.getVersion());
 									client.emit(listenBoard, whiteboard.getName());
 
 								}).on(boardPathAccepted, (args5) -> {
 									String pathUpdate = (String)args5[0];
-									System.out.println("Received new path update from board owner: "+pathUpdate);
+									log.info("Received new path update from board owner: "+pathUpdate);
 									Whiteboard whiteboard = whiteboards.get(getBoardName(pathUpdate));
 									WhiteboardPath newPath = new WhiteboardPath(getBoardPaths(pathUpdate));
 									long oldVersion = getBoardVersion(pathUpdate);
@@ -239,6 +238,7 @@ public class WhiteboardApp {
 
 								}).on(boardClearAccepted, (args6) -> {
 									String clearUpdate = (String)args6[0];
+									log.info("Received new clear update from board owner: "+clearUpdate);
 									Whiteboard whiteboard = whiteboards.get(getBoardName(clearUpdate));
 									long oldVersion = getBoardVersion(clearUpdate);
 
@@ -250,6 +250,7 @@ public class WhiteboardApp {
 									}
 								}).on(boardUndoAccepted, (args6) -> {
 									String undoUpdate = (String)args6[0];
+									log.info("Received new undo update from board owner: "+undoUpdate);
 									Whiteboard whiteboard = whiteboards.get(getBoardName(undoUpdate));
 									long oldVersion = getBoardVersion(undoUpdate);
 
@@ -259,10 +260,10 @@ public class WhiteboardApp {
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
-								}); //TODO: also put other update listeners here
+								});
 
 								client.emit(getBoardData, board);
-								System.out.println("Requested full board data for: "+board);
+								log.info("Requested full board data for: "+board);
 							});
 
 							clientPeerManager.start();
@@ -277,6 +278,7 @@ public class WhiteboardApp {
 					//When an unsharingBoard event is received, remove it from out list of boards
 				}).on(WhiteboardServer.unsharingBoard, (args3 -> {
 					String board = (String) args3[0];
+					log.info("Board owner no longer sharing board: "+board);
 					synchronized (whiteboards) {
 						if (whiteboards.containsKey(board)) {
 							Whiteboard whiteboard = whiteboards.get(board);
@@ -295,35 +297,34 @@ public class WhiteboardApp {
 				//When a peer connects, listen to any events they send
 				serverManager.on(ServerManager.sessionStarted, (args2) -> {
 					Endpoint client = (Endpoint)args2[0];
-					System.out.println("Peer has connected from: "+client.getOtherEndpointId());
+					log.info("Peer has connected from: "+client.getOtherEndpointId());
 
 					//When getBoardData is received, send all data about the board back to the peer.
 					client.on(getBoardData, (args3) -> {
 						String board = (String)args3[0];
-						System.out.println("getBoardData request received about board: "+board);
+						log.info("getBoardData request received about board: "+board);
 						Whiteboard requestedBoard = whiteboards.get(board);
 						client.emit(boardData, requestedBoard.toString());
-						System.out.println("Board data emitted to peer: "+client.getOtherEndpointId());
+						log.info("Board data emitted to peer: "+client.getOtherEndpointId());
 
 					}).on(listenBoard, (args4) -> {
 						String board = (String)args4[0];
-						System.out.println("Peer wants to listen to updates for board: "+board);
+						log.info("Peer wants to listen to updates for board: "+board);
 						boardEndpoints.putIfAbsent(board, new HashSet<>());
 						boardEndpoints.get(board).add(client);
-						System.out.println("Endpoint added to board");
 
 					}).on(boardPathUpdate, (args5) -> {
 						String pathUpdate = (String)args5[0];
-						System.out.println("path update request received: "+pathUpdate);
+						log.info("path update request received: "+pathUpdate);
 						Whiteboard whiteboard = whiteboards.get(getBoardName(pathUpdate));
 						String newPath = getBoardPaths(pathUpdate);
 						long oldVersion = getBoardVersion(pathUpdate);
-						System.out.println("version from path update: "+oldVersion);
-						System.out.println("version of actual board: "+whiteboard.getVersion());
+
 						if (whiteboard.addPath(new WhiteboardPath(newPath), oldVersion)) {
 							if (boardEndpoints.containsKey(getBoardName(pathUpdate))){
 								for (Endpoint endpoint : boardEndpoints.get(getBoardName(pathUpdate))) {
 									endpoint.emit(boardPathAccepted, pathUpdate);
+									log.info("New path update accepted");
 								}
 							}
 
@@ -333,13 +334,14 @@ public class WhiteboardApp {
 						}
 					}).on(boardClearUpdate, (args6) -> {
 						String clearUpdate = (String) args6[0];
+						log.info("path clear request received: "+clearUpdate);
 						Whiteboard whiteboard = whiteboards.get(getBoardName(clearUpdate));
 						long oldVersion = getBoardVersion(clearUpdate);
 						if (whiteboard.clear(oldVersion)) {
 							if (boardEndpoints.containsKey(getBoardName(clearUpdate))){
 								for (Endpoint endpoint : boardEndpoints.get(getBoardName(clearUpdate))) {
-									// emits: "host:port:boardid%version%"
 									endpoint.emit(boardClearAccepted, clearUpdate);
+									log.info("New clear update accepted");
 								}
 							}
 						}
@@ -348,20 +350,21 @@ public class WhiteboardApp {
 						}
 					}).on(boardUndoUpdate, (args6) -> {
 						String undoUpdate = (String) args6[0];
+						log.info("path undo request received: "+undoUpdate);
 						Whiteboard whiteboard = whiteboards.get(getBoardName(undoUpdate));
 						long oldVersion = getBoardVersion(undoUpdate);
 						if (whiteboard.undo(oldVersion)) {
 							if (boardEndpoints.containsKey(getBoardName(undoUpdate))){
 								for (Endpoint endpoint : boardEndpoints.get(getBoardName(undoUpdate))) {
-									// emits: "host:port:boardid%version%"
 									endpoint.emit(boardUndoAccepted, undoUpdate);
+									log.info("New undo update accepted");
 								}
 							}
 						}
 						if (whiteboard.equals(selectedBoard)) {
 							drawSelectedWhiteboard();
 						}
-					}); //TODO: set up server response to listenBoard event (add to a list of listening endpoints for that specific board).
+					});
 				});
 
 			});
@@ -370,7 +373,7 @@ public class WhiteboardApp {
 			peerManager.start();
 			clientManager.start();
 			clientManager.join();
-			peerManager.joinWithClientManagers(); //??? Not sure about the correct shutdown behaviour
+			peerManager.joinWithClientManagers();
 		} catch (Exception e) {
 			e.printStackTrace();
 			//TODO: do something with this exception
@@ -469,7 +472,7 @@ public class WhiteboardApp {
 		sharedCheckbox.addItemListener(e -> {
 			if (e.getStateChange() == ItemEvent.SELECTED) {
 				endpoint.emit(WhiteboardServer.shareBoard, selectedBoard.getName());
-				System.out.println("shareBoard event emitted to server");
+				log.info("shareBoard event emitted to server");
 			} else {
 				endpoint.emit(WhiteboardServer.unshareBoard, selectedBoard.getName());
 			}
@@ -546,12 +549,14 @@ public class WhiteboardApp {
 				if(selectedBoard.isRemote()) {
 					Endpoint peer = boardServerEndpoints.get(selectedBoard.getName());
 					peer.emit(boardPathUpdate, pathUpdate);
+					log.info("Sending board update request to board owner");
 					//host:port:boardid%version%PATH
 				}
 				else {
 					if (boardEndpoints.containsKey(selectedBoard.getName())) {
 						for (Endpoint endpoint : boardEndpoints.get(selectedBoard.getName())) {
 							endpoint.emit(boardPathAccepted, pathUpdate);
+							log.info("New board path update accepted");
 						}
 					}
 				}
@@ -579,11 +584,13 @@ public class WhiteboardApp {
 				if(selectedBoard.isRemote()) {
 					Endpoint peer = boardServerEndpoints.get(selectedBoard.getName());
 					peer.emit(boardClearUpdate, clearUpdate);
+					log.info("Sending board clear request to board owner");
 				}
 				else {
 					if (boardEndpoints.containsKey(selectedBoard.getName())) {
 						for (Endpoint endpoint : boardEndpoints.get(selectedBoard.getName())) {
 							endpoint.emit(boardClearAccepted, clearUpdate);
+							log.info("New board clear update accepted");
 						}
 					}
 				}
@@ -609,11 +616,13 @@ public class WhiteboardApp {
 				if(selectedBoard.isRemote()) {
 					Endpoint peer = boardServerEndpoints.get(selectedBoard.getName());
 					peer.emit(boardUndoUpdate, undoUpdate);
+					log.info("Sending board undo request to board owner");
 				}
 				else {
 					if (boardEndpoints.containsKey(selectedBoard.getName())) {
 						for (Endpoint endpoint : boardEndpoints.get(selectedBoard.getName())) {
 							endpoint.emit(boardUndoAccepted, undoUpdate);
+							log.info("New board clear update accepted");
 						}
 					}
 				}

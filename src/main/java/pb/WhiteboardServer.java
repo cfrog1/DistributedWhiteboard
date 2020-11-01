@@ -139,6 +139,7 @@ public class WhiteboardServer {
 
             //Provide new client with all currently shared boards
             Endpoint client = (Endpoint) args1[0];
+            log.info("New peer connected, sending all shared boards to: "+client.getOtherEndpointId());
             synchronized (sharedBoards) {
                 sharedBoards.forEach(board -> client.emit(sharingBoard, board));
             }
@@ -147,6 +148,7 @@ public class WhiteboardServer {
             //Client wants to share a board, share it to all other peers
             client.on(shareBoard, (args2) -> {
                 String board = (String) args2[0];
+                log.info("Client wants to share a board: "+board);
                 System.out.println(board);
 
                 // check error in board string host:port:boardID, potentially make its own function
@@ -158,12 +160,13 @@ public class WhiteboardServer {
                         sharedBoards.add(board);
                     }
                     serverManager.emit(sharingBoard, board);
+                    log.info("Sending newly shared board to all clients");
                 }
 
                 //Client wants to unshare a board, unshare to all other peers
             }).on(unshareBoard, (args2) -> {
-                System.out.println("args: " + args2[0]);
                 String board = (String) args2[0];
+                log.info("Client wants to unshare board: "+board);
                 // check error in board string host:port:boardID
                 String[] parts = board.split(":");
                 if (parts.length != 3) {
@@ -173,6 +176,7 @@ public class WhiteboardServer {
                         sharedBoards.remove(board);
                     }
                     serverManager.emit(unsharingBoard, board);
+                    log.info("Alerting all clients that board is no longer being shared: "+board);
                 }
             });
 
