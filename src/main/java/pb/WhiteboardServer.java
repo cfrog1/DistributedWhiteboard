@@ -2,7 +2,9 @@ package pb;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Logger;
@@ -87,7 +89,8 @@ public class WhiteboardServer {
      */
     private static int port = Utils.indexServerPort;
 
-    public static final List<String> sharedBoards = new ArrayList<String>(); //TODO methods to access this need to be synchronized
+    public static final Map<String, Endpoint> sharedBoards = new HashMap<>();
+
 
     private static void help(Options options) {
         String header = "PB Whiteboard Server for Unimelb COMP90015\n\n";
@@ -141,7 +144,9 @@ public class WhiteboardServer {
             Endpoint client = (Endpoint) args1[0];
             log.info("New peer connected, sending all shared boards to: "+client.getOtherEndpointId());
             synchronized (sharedBoards) {
-                sharedBoards.forEach(board -> client.emit(sharingBoard, board));
+                for (String board : sharedBoards.keySet()) {
+                    client.emit(sharingBoard, board);
+                }
             }
 
             //CLIENT EVENT LISTENERS
@@ -157,7 +162,7 @@ public class WhiteboardServer {
                     client.emit(error, "incorrect board string"); //placeholder
                 } else {
                     synchronized (sharedBoards) {
-                        sharedBoards.add(board);
+                        sharedBoards.put(board, client);
                     }
                     serverManager.emit(sharingBoard, board);
                     log.info("Sending newly shared board to all clients");
@@ -188,6 +193,27 @@ public class WhiteboardServer {
                 String board = (String) args2[0];
                 client.emit(unsharingBoard, board);
             });
+
+        }).on(ServerManager.sessionStopped, (args3) -> {
+            Endpoint endpoint = (Endpoint)args3[0];
+            log.info("Session stopped with peer: "+endpoint.getOtherEndpointId());
+            synchronized (sharedBoards) {
+                for (String board : sharedBoards.keySet()) {
+                    if (sharedBoards.get(board).equals(endpoint)) {
+                        sharedBoards.remove(board);
+                    }
+                }
+            }
+        }).on(ServerManager.sessionError, (args3) -> {
+            Endpoint endpoint = (Endpoint)args3[0];
+            log.severe("Session error with peer: "+endpoint.getOtherEndpointId());
+            synchronized (sharedBoards) {
+                for (String board : sharedBoards.keySet()) {
+                    if (sharedBoards.get(board).equals(endpoint)) {
+                        sharedBoards.remove(board);
+                    }
+                }
+            }
         });
 
 

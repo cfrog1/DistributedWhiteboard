@@ -206,11 +206,11 @@ public class WhiteboardApp {
 
 							//When connected to board's owner, setup listeners for updates
 							clientPeerManager.on(PeerManager.peerStarted, (args3) -> {
-								Endpoint client = (Endpoint)args3[0];
-								boardServerEndpoints.put(board, client);
-								log.info("Connected to peer: "+client.getOtherEndpointId());
+								Endpoint peer = (Endpoint)args3[0];
+								boardServerEndpoints.put(board, peer);
+								log.info("Connected to peer: "+peer.getOtherEndpointId());
 
-								client.on(boardData, (args4) -> {
+								peer.on(boardData, (args4) -> {
 									String boardData = (String)args4[0];
 									log.info("Received full board data for board: "+getBoardName(boardData));
 									Whiteboard whiteboard = new Whiteboard(getBoardName(boardData), true);
@@ -219,7 +219,7 @@ public class WhiteboardApp {
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
-									client.emit(listenBoard, whiteboard.getName());
+									peer.emit(listenBoard, whiteboard.getName());
 
 								}).on(boardPathAccepted, (args5) -> {
 									String pathUpdate = (String)args5[0];
@@ -229,7 +229,7 @@ public class WhiteboardApp {
 									long oldVersion = getBoardVersion(pathUpdate);
 
 									if (!whiteboard.addPath(newPath, oldVersion)) {
-										client.emit(getBoardData, getBoardName(pathUpdate));
+										peer.emit(getBoardData, getBoardName(pathUpdate));
 									}
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
@@ -243,7 +243,7 @@ public class WhiteboardApp {
 									long oldVersion = getBoardVersion(clearUpdate);
 
 									if (!whiteboard.clear(oldVersion)) {
-										client.emit(getBoardData, getBoardName(clearUpdate));
+										peer.emit(getBoardData, getBoardName(clearUpdate));
 									}
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
@@ -255,20 +255,31 @@ public class WhiteboardApp {
 									long oldVersion = getBoardVersion(undoUpdate);
 
 									if (!whiteboard.undo(oldVersion)) {
-										client.emit(getBoardData, getBoardName(undoUpdate));
+										peer.emit(getBoardData, getBoardName(undoUpdate));
 									}
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
 								});
 
-								client.emit(getBoardData, board);
+								peer.emit(getBoardData, board);
 								log.info("Requested full board data for: "+board);
+
+							}).on(PeerManager.peerStopped, (args3) -> {
+								Endpoint peer = (Endpoint)args3[0];
+								log.info("Peer stopped with board owner: "+peer.getOtherEndpointId());
+								whiteboards.remove(board);
+
+							}).on(PeerManager.peerError, (args3) -> {
+								Endpoint peer = (Endpoint)args3[0];
+								log.severe("Peer error with board owner: "+peer.getOtherEndpointId());
+								whiteboards.remove(board);
 							});
 
 							clientPeerManager.start();
 
 						} catch (UnknownHostException e) {
+							log.severe("Unable to connect to host:port provided");
 							e.printStackTrace();
 						} catch (InterruptedException e) {
 							e.printStackTrace();
@@ -288,6 +299,12 @@ public class WhiteboardApp {
 						}
 					}
 				}));
+			}).on(PeerManager.peerStopped, (args3) -> {
+				Endpoint endpoint = (Endpoint)args3[0];
+				log.info("Peer stopped with wb server: "+endpoint.getOtherEndpointId());
+			}).on(PeerManager.peerError, (args3) -> {
+				Endpoint endpoint = (Endpoint)args3[0];
+				log.severe("Peer error with wb server: "+endpoint.getOtherEndpointId());
 			});
 
 			//The whiteboard's server events
@@ -327,7 +344,6 @@ public class WhiteboardApp {
 									log.info("New path update accepted");
 								}
 							}
-
 						}
 						if (whiteboard.equals(selectedBoard)) {
 							drawSelectedWhiteboard();
@@ -365,6 +381,19 @@ public class WhiteboardApp {
 							drawSelectedWhiteboard();
 						}
 					});
+				}).on(ServerManager.sessionStopped, (args3) -> {
+					Endpoint endpoint = (Endpoint)args3[0];
+					log.info("Session stopped with peer: "+endpoint.getOtherEndpointId());
+					for (String board : boardEndpoints.keySet()) {
+						boardEndpoints.get(board).remove(endpoint);
+					}
+
+				}).on(ServerManager.sessionError, (args3) -> {
+					Endpoint endpoint = (Endpoint)args3[0];
+					log.severe("Session error with peer: "+endpoint.getOtherEndpointId());
+					for (String board : boardEndpoints.keySet()) {
+						boardEndpoints.get(board).remove(endpoint);
+					}
 				});
 
 			});
@@ -375,8 +404,8 @@ public class WhiteboardApp {
 			clientManager.join();
 			peerManager.joinWithClientManagers();
 		} catch (Exception e) {
+			log.severe("Unable to connect to whiteboard server");
 			e.printStackTrace();
-			//TODO: do something with this exception
 		}
 
 	}
