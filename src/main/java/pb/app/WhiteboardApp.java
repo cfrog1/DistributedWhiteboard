@@ -141,39 +141,39 @@ public class WhiteboardApp {
 	 * </ul>
 	 */
 	public static final String boardError = "BOARD_ERROR";
-	
+
 	/**
-	 * White board map from board name to board object 
+	 * White board map from board name to board object
 	 */
 	Map<String,Whiteboard> whiteboards;
 
 	Map<String, Set<Endpoint>> boardEndpoints;
 
 	Map<String, Endpoint> boardServerEndpoints;
-	
+
 	/**
 	 * The currently selected white board
 	 */
 	Whiteboard selectedBoard = null;
-	
+
 	/**
 	 * The peer:port string of the peer. This is synonomous with IP:port, host:port,
 	 * etc. where it may appear in comments.
 	 */
 	String peerport="standalone"; // a default value for the non-distributed version
-	
+
 	/*
 	 * GUI objects, you probably don't need to modify these things... you don't
 	 * need to modify these things... don't modify these things [LOTR reference?].
 	 */
-	
+
 	JButton clearBtn, blackBtn, redBtn, createBoardBtn, deleteBoardBtn, undoBtn;
 	JCheckBox sharedCheckbox ;
 	DrawArea drawArea;
 	JComboBox<String> boardComboBox;
 	boolean modifyingComboBox=false;
 	boolean modifyingCheckBox=false;
-	
+
 	/**
 	 * Initialize the white board app.
 	 */
@@ -234,8 +234,6 @@ public class WhiteboardApp {
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
-
-
 								}).on(boardClearAccepted, (args6) -> {
 									String clearUpdate = (String)args6[0];
 									log.info("Received new clear update from board owner: "+clearUpdate);
@@ -260,6 +258,11 @@ public class WhiteboardApp {
 									if (whiteboard.equals(selectedBoard)) {
 										drawSelectedWhiteboard();
 									}
+								}).on(boardDeleted, (args7) -> {
+									// we need to remove the board from selection
+									String deleteUpdate = (String) args7[0];
+									log.info("Received new undo update from board owner: " + deleteUpdate);
+									deleteBoard(getBoardName(deleteUpdate));
 								});
 
 								peer.emit(getBoardData, board);
@@ -380,6 +383,12 @@ public class WhiteboardApp {
 						if (whiteboard.equals(selectedBoard)) {
 							drawSelectedWhiteboard();
 						}
+					}).on(unlistenBoard, (args7) -> {
+						String unlistenUpdate = (String)args7[0];
+						log.info("Peer wants to unlisten to updates for board: "+ unlistenUpdate);
+						if (boardEndpoints.containsKey(getBoardName(unlistenUpdate))) {
+							boardEndpoints.get(getBoardName(unlistenUpdate)).remove(client);
+						}
 					});
 				}).on(ServerManager.sessionStopped, (args3) -> {
 					Endpoint endpoint = (Endpoint)args3[0];
@@ -409,15 +418,15 @@ public class WhiteboardApp {
 		}
 
 	}
-	
+
 	/******
-	 * 
+	 *
 	 * Utility methods to extract fields from argument strings.
-	 * 
+	 *
 	 ******/
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return peer:port:boardid
 	 */
@@ -425,9 +434,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",2);
 		return parts[0];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return boardid%version%PATHS
 	 */
@@ -435,9 +444,9 @@ public class WhiteboardApp {
 		String[] parts=data.split(":");
 		return parts[2];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return version%PATHS
 	 */
@@ -445,9 +454,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",2);
 		return parts[1];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return version
 	 */
@@ -455,9 +464,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",3);
 		return Long.parseLong(parts[1]);
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return PATHS
 	 */
@@ -465,9 +474,9 @@ public class WhiteboardApp {
 		String[] parts=data.split("%",3);
 		return parts[2];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return peer
 	 */
@@ -475,9 +484,9 @@ public class WhiteboardApp {
 		String[] parts=data.split(":");
 		return parts[0];
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param data = peer:port:boardid%version%PATHS
 	 * @return port
 	 */
@@ -485,11 +494,11 @@ public class WhiteboardApp {
 		String[] parts=data.split(":");
 		return Integer.parseInt(parts[1]);
 	}
-	
+
 	/******
-	 * 
+	 *
 	 * Methods called from events.
-	 * 
+	 *
 	 ******/
 
 	// From whiteboard server
@@ -507,22 +516,22 @@ public class WhiteboardApp {
 			}
 		});
 	}
-	
-	
+
+
 	/******
-	 * 
+	 *
 	 * Methods to manipulate data locally. Distributed systems related code has been
 	 * cut from these methods.
-	 * 
+	 *
 	 ******/
-	
+
 	/**
 	 * Wait for the peer manager to finish all threads.
 	 */
 	public void waitToFinish() {
-		
+
 	}
-	
+
 	/**
 	 * Add a board to the list that the user can select from. If select is
 	 * true then also select this board.
@@ -535,21 +544,42 @@ public class WhiteboardApp {
 		}
 		updateComboBox(select?whiteboard.getName():null);
 	}
-	
+
 	/**
 	 * Delete a board from the list.
 	 * @param boardname must have the form peer:port:boardid
 	 */
-	public void deleteBoard(String boardname) { //TODO: if remote, unlisten board (I think)
+	public void deleteBoard(String boardname) {
 		synchronized(whiteboards) {
 			Whiteboard whiteboard = whiteboards.get(boardname);
 			if(whiteboard!=null) {
+				// If the board is a local board, then we need to let the other peers know that its been deleted
+				if (!whiteboard.isRemote()) {
+					if (boardEndpoints.containsKey(whiteboard.getName())) {
+						for (Endpoint endpoint : boardEndpoints.get(whiteboard.getName())) {
+							endpoint.emit(boardDeleted, boardname);
+							log.info("new board path deleted sent to: " + endpoint.getName());
+						}
+						// no longer need to track who listens to this board (ie its no one anymore)
+						boardEndpoints.remove(whiteboard.getName());
+					}
+				}
+
+				// If the board is remote then we should probably notify the owner that we are no longer listening
+				if (whiteboard.isRemote()) {
+					Endpoint peer = boardServerEndpoints.get(boardname);
+
+					// no longer need to track the board as a board that we listen to
+					boardServerEndpoints.remove(boardname);
+					peer.emit(unlistenBoard, boardname);
+					log.info("Sending unlisten board to board owner");
+				}
 				whiteboards.remove(boardname);
 			}
 		}
 		updateComboBox(null);
 	}
-	
+
 	/**
 	 * Create a new local board with name peer:port:boardid.
 	 * The boardid includes the time stamp that the board was created at.
@@ -559,7 +589,7 @@ public class WhiteboardApp {
 		Whiteboard whiteboard = new Whiteboard(name,false);
 		addBoard(whiteboard,true);
 	}
-	
+
 	/**
 	 * Add a path to the selected board. The path has already
 	 * been drawn on the draw area; so if it can't be accepted then
@@ -590,13 +620,13 @@ public class WhiteboardApp {
 					}
 				}
 
-				
+
 			}
 		} else {
 			log.severe("path created without a selected board: "+currentPath);
 		}
 	}
-	
+
 	/**
 	 * Clear the selected whiteboard.
 	 */
@@ -629,7 +659,7 @@ public class WhiteboardApp {
 			log.severe("cleared without a selected board");
 		}
 	}
-	
+
 	/**
 	 * Undo the last path of the selected whiteboard.
 	 */
@@ -661,7 +691,7 @@ public class WhiteboardApp {
 			log.severe("undo without a selected board");
 		}
 	}
-	
+
 	/**
 	 * The variable selectedBoard has been set.
 	 */
@@ -669,7 +699,7 @@ public class WhiteboardApp {
 		drawSelectedWhiteboard();
 		log.info("selected board: "+selectedBoard.getName());
 	}
-	
+
 	/**
 	 * Set the share status on the selected board.
 	 */
