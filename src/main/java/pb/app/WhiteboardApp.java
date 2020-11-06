@@ -5,6 +5,7 @@ import pb.managers.ClientManager;
 import pb.managers.PeerManager;
 import pb.managers.ServerManager;
 import pb.managers.endpoint.Endpoint;
+import pb.utils.Utils;
 
 import javax.swing.*;
 import java.awt.*;
@@ -21,118 +22,118 @@ import java.util.logging.Logger;
  * https://www.ssaurel.com/blog/learn-how-to-make-a-swing-painting-and-drawing-application/
  */
 public class WhiteboardApp {
-    private static Logger log = Logger.getLogger(WhiteboardApp.class.getName());
+	private static Logger log = Logger.getLogger(WhiteboardApp.class.getName());
 
-    /**
-     * Emitted to another peer to subscribe to updates for the given board. Argument
-     * must have format "host:port:boardid".
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String listenBoard = "BOARD_LISTEN";
+	/**
+	 * Emitted to another peer to subscribe to updates for the given board. Argument
+	 * must have format "host:port:boardid".
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String listenBoard = "BOARD_LISTEN";
 
-    /**
-     * Emitted to another peer to unsubscribe to updates for the given board.
-     * Argument must have format "host:port:boardid".
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String unlistenBoard = "BOARD_UNLISTEN";
+	/**
+	 * Emitted to another peer to unsubscribe to updates for the given board.
+	 * Argument must have format "host:port:boardid".
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String unlistenBoard = "BOARD_UNLISTEN";
 
-    /**
-     * Emitted to another peer to get the entire board data for a given board.
-     * Argument must have format "host:port:boardid".
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String getBoardData = "GET_BOARD_DATA";
+	/**
+	 * Emitted to another peer to get the entire board data for a given board.
+	 * Argument must have format "host:port:boardid".
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String getBoardData = "GET_BOARD_DATA";
 
-    /**
-     * Emitted to another peer to give the entire board data for a given board.
-     * Argument must have format "host:port:boardid%version%PATHS".
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardData = "BOARD_DATA";
+	/**
+	 * Emitted to another peer to give the entire board data for a given board.
+	 * Argument must have format "host:port:boardid%version%PATHS".
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardData = "BOARD_DATA";
 
-    /**
-     * Emitted to another peer to add a path to a board managed by that peer.
-     * Argument must have format "host:port:boardid%version%PATH". The numeric value
-     * of version must be equal to the version of the board without the PATH added,
-     * i.e. the current version of the board.
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardPathUpdate = "BOARD_PATH_UPDATE";
+	/**
+	 * Emitted to another peer to add a path to a board managed by that peer.
+	 * Argument must have format "host:port:boardid%version%PATH". The numeric value
+	 * of version must be equal to the version of the board without the PATH added,
+	 * i.e. the current version of the board.
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardPathUpdate = "BOARD_PATH_UPDATE";
 
-    /**
-     * Emitted to another peer to indicate a new path has been accepted. Argument
-     * must have format "host:port:boardid%version%PATH". The numeric value of
-     * version must be equal to the version of the board without the PATH added,
-     * i.e. the current version of the board.
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardPathAccepted = "BOARD_PATH_ACCEPTED";
+	/**
+	 * Emitted to another peer to indicate a new path has been accepted. Argument
+	 * must have format "host:port:boardid%version%PATH". The numeric value of
+	 * version must be equal to the version of the board without the PATH added,
+	 * i.e. the current version of the board.
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardPathAccepted = "BOARD_PATH_ACCEPTED";
 
-    /**
-     * Emitted to another peer to remove the last path on a board managed by that
-     * peer. Argument must have format "host:port:boardid%version%". The numeric
-     * value of version must be equal to the version of the board without the undo
-     * applied, i.e. the current version of the board.
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardUndoUpdate = "BOARD_UNDO_UPDATE";
+	/**
+	 * Emitted to another peer to remove the last path on a board managed by that
+	 * peer. Argument must have format "host:port:boardid%version%". The numeric
+	 * value of version must be equal to the version of the board without the undo
+	 * applied, i.e. the current version of the board.
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardUndoUpdate = "BOARD_UNDO_UPDATE";
 
-    /**
-     * Emitted to another peer to indicate an undo has been accepted. Argument must
-     * have format "host:port:boardid%version%". The numeric value of version must
-     * be equal to the version of the board without the undo applied, i.e. the
-     * current version of the board.
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardUndoAccepted = "BOARD_UNDO_ACCEPTED";
+	/**
+	 * Emitted to another peer to indicate an undo has been accepted. Argument must
+	 * have format "host:port:boardid%version%". The numeric value of version must
+	 * be equal to the version of the board without the undo applied, i.e. the
+	 * current version of the board.
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardUndoAccepted = "BOARD_UNDO_ACCEPTED";
 
-    /**
-     * Emitted to another peer to clear a board managed by that peer. Argument must
-     * have format "host:port:boardid%version%". The numeric value of version must
-     * be equal to the version of the board without the clear applied, i.e. the
-     * current version of the board.
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardClearUpdate = "BOARD_CLEAR_UPDATE";
+	/**
+	 * Emitted to another peer to clear a board managed by that peer. Argument must
+	 * have format "host:port:boardid%version%". The numeric value of version must
+	 * be equal to the version of the board without the clear applied, i.e. the
+	 * current version of the board.
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardClearUpdate = "BOARD_CLEAR_UPDATE";
 
-    /**
-     * Emitted to another peer to indicate an clear has been accepted. Argument must
-     * have format "host:port:boardid%version%". The numeric value of version must
-     * be equal to the version of the board without the clear applied, i.e. the
-     * current version of the board.
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardClearAccepted = "BOARD_CLEAR_ACCEPTED";
+	/**
+	 * Emitted to another peer to indicate an clear has been accepted. Argument must
+	 * have format "host:port:boardid%version%". The numeric value of version must
+	 * be equal to the version of the board without the clear applied, i.e. the
+	 * current version of the board.
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardClearAccepted = "BOARD_CLEAR_ACCEPTED";
 
-    /**
-     * Emitted to another peer to indicate a board no longer exists and should be
-     * deleted. Argument must have format "host:port:boardid".
-     * <ul>
-     * <li>{@code args[0] instanceof String}</li>
-     * </ul>
-     */
-    public static final String boardDeleted = "BOARD_DELETED";
+	/**
+	 * Emitted to another peer to indicate a board no longer exists and should be
+	 * deleted. Argument must have format "host:port:boardid".
+	 * <ul>
+	 * <li>{@code args[0] instanceof String}</li>
+	 * </ul>
+	 */
+	public static final String boardDeleted = "BOARD_DELETED";
 
 	/**
 	 * Emitted to another peer to indicate an error has occurred.
@@ -178,6 +179,10 @@ public class WhiteboardApp {
 	 * Initialize the white board app.
 	 */
 
+	Endpoint wbendpoint;
+	PeerManager pmanager;
+	ClientManager climanager;
+
 	//TODO: make sure that all peerStarted events also have peerStopped, peerError etc.
 	public WhiteboardApp(int peerPort, String whiteboardServerHost,
 						 int whiteboardServerPort) {
@@ -191,8 +196,12 @@ public class WhiteboardApp {
 		//Connect to server
 		try {
 			ClientManager clientManager = peerManager.connect(whiteboardServerPort, whiteboardServerHost);
+			climanager = clientManager;
 			clientManager.on(PeerManager.peerStarted, (args) -> {
 				Endpoint endpoint = (Endpoint)args[0];
+
+				wbendpoint = endpoint;
+
 				shareToggleEmit(endpoint); //Set up events for when 'shared' is checked on a local whiteboard
 				log.info("Connected to server");
 
@@ -260,9 +269,12 @@ public class WhiteboardApp {
 									}
 								}).on(boardDeleted, (args7) -> {
 									// we need to remove the board from selection
+									System.out.println("Recieved Board Deleted");
 									String deleteUpdate = (String) args7[0];
 									log.info("Received new undo update from board owner: " + deleteUpdate);
 									deleteBoard(getBoardName(deleteUpdate));
+
+									clientPeerManager.shutdown(); // TODO: Just added (Connors suggestion)
 								});
 
 								peer.emit(getBoardData, board);
@@ -270,8 +282,16 @@ public class WhiteboardApp {
 
 							}).on(PeerManager.peerStopped, (args3) -> {
 								Endpoint peer = (Endpoint)args3[0];
+								System.out.println("PEER STOPPED CALLED!!!!");
 								log.info("Peer stopped with board owner: "+peer.getOtherEndpointId());
 								whiteboards.remove(board);
+								//boardEndpoints.remove(peer);
+								//boardServerEndpoints.remove(peer);
+								//peer.close(); //TODO:
+								//clientPeerManager.emit(PeerManager.peerStopped, peer);
+								clientManager.sessionStopped(peer);
+								//Endpoint endpoint = (Endpoint)args3[0];
+
 
 							}).on(PeerManager.peerError, (args3) -> {
 								Endpoint peer = (Endpoint)args3[0];
@@ -280,6 +300,8 @@ public class WhiteboardApp {
 							});
 
 							clientPeerManager.start();
+
+							//clientPeerManager.join();
 
 						} catch (UnknownHostException e) {
 							log.severe("Unable to connect to host:port provided");
@@ -291,8 +313,22 @@ public class WhiteboardApp {
 					}
 					//When an unsharingBoard event is received, remove it from out list of boards
 				}).on(WhiteboardServer.unsharingBoard, (args3 -> {
+					System.out.println("Getting Unshared - Remove from list");
 					String board = (String) args3[0];
 					log.info("Board owner no longer sharing board: "+board);
+
+					//********************
+					// TODO: Section added to test
+					Endpoint peer = boardServerEndpoints.get(board);
+
+					// no longer need to track the board as a board that we listen to
+					//boardServerEndpoints.remove(boardname);
+					//peer.emit(unlistenBoard, boardname);
+					//log.info("Sending unlisten board to board owner");
+
+
+					//********************************
+
 					synchronized (whiteboards) {
 						if (whiteboards.containsKey(board)) {
 							Whiteboard whiteboard = whiteboards.get(board);
@@ -305,11 +341,13 @@ public class WhiteboardApp {
 			}).on(PeerManager.peerStopped, (args3) -> {
 				Endpoint endpoint = (Endpoint)args3[0];
 				log.info("Peer stopped with wb server: "+endpoint.getOtherEndpointId());
+
 			}).on(PeerManager.peerError, (args3) -> {
 				Endpoint endpoint = (Endpoint)args3[0];
 				log.severe("Peer error with wb server: "+endpoint.getOtherEndpointId());
 			});
 
+			pmanager = peerManager;
 			//The whiteboard's server events
 			peerManager.on(PeerManager.peerServerManager, (args) -> {
 				ServerManager serverManager = (ServerManager)args[0];
@@ -368,6 +406,7 @@ public class WhiteboardApp {
 							drawSelectedWhiteboard();
 						}
 					}).on(boardUndoUpdate, (args6) -> {
+
 						String undoUpdate = (String) args6[0];
 						log.info("path undo request received: "+undoUpdate);
 						Whiteboard whiteboard = whiteboards.get(getBoardName(undoUpdate));
@@ -410,7 +449,7 @@ public class WhiteboardApp {
 			show(peerport);
 			peerManager.start();
 			clientManager.start();
-			clientManager.join();
+			//clientManager.join();
 			peerManager.joinWithClientManagers();
 		} catch (Exception e) {
 			log.severe("Unable to connect to whiteboard server");
@@ -573,6 +612,9 @@ public class WhiteboardApp {
 					boardServerEndpoints.remove(boardname);
 					peer.emit(unlistenBoard, boardname);
 					log.info("Sending unlisten board to board owner");
+
+					//climanager.sessionStopped(peer); //ADDED TODO
+					//peer.close();////******* TODO:
 				}
 				whiteboards.remove(boardname);
 			}
@@ -664,6 +706,7 @@ public class WhiteboardApp {
 	 * Undo the last path of the selected whiteboard.
 	 */
 	public void undoLocally() {
+
 		if(selectedBoard!=null) {
 			if(!selectedBoard.undo(selectedBoard.getVersion())) {
 				// some other peer modified the board in between
@@ -705,236 +748,258 @@ public class WhiteboardApp {
 	 */
 	public void setShare(boolean share) {
 		if(selectedBoard!=null) {
-        	selectedBoard.setShared(share);
-        } else {
-            log.severe("there is no selected board");
-        }
-    }
+			selectedBoard.setShared(share);
+		} else {
+			log.severe("there is no selected board");
+		}
+	}
 
-    /**
-     * Called by the gui when the user closes the app.
-     */
-    public void guiShutdown() {
-        // do some final cleanup
-        HashSet<Whiteboard> existingBoards = new HashSet<>(whiteboards.values());
-        existingBoards.forEach((board) -> {
-            deleteBoard(board.getName());
-        });
+
+	/**
+	 * Called by the gui when the user closes the app.
+	 */
+	public void guiShutdown() {
+		// do some final cleanup
+		HashSet<Whiteboard> existingBoards = new HashSet<>(whiteboards.values());
+
+		existingBoards.forEach((board) -> {
+			if (board.isShared() && !board.isRemote()){
+				Endpoint peer = boardServerEndpoints.get(board.getName());
+				wbendpoint.emit(WhiteboardServer.unshareBoard, board.getName());
+				//wbendpoint.emit(ServerManager.sessionStopped, peer);
+				//Endpoint peer = boardServerEndpoints.get(board.getName());
+				//wbendpoint.emit(ServerManager.sessionStopped, board.getName());
+				//peer.emit(PeerManager.peerStopped);
+				//climanager.sessionStopped(peer);
+			}
+			deleteBoard(board.getName());
+		});
+		/*f (selectedBoard.isShared() && !selectedBoard.isRemote()){
+			wbendpoint.emit(WhiteboardServer.unshareBoard, selectedBoard.getName());
+			deleteBoard(selectedBoard.getName());
+		}
         whiteboards.values().forEach((whiteboard) -> {
+        	if (whiteboard.isShared() && !whiteboard.isRemote()){
+				wbendpoint.emit(WhiteboardServer.unshareBoard, whiteboard.getName());
+			}
+			deleteBoard(whiteboard.getName());
+        });*/
 
-        });
-    }
-
-
-    /******
-     *
-     * GUI methods and callbacks from GUI for user actions.
-     * You probably do not need to modify anything below here.
-     *
-     ******/
-
-    /**
-     * Redraw the screen with the selected board
-     */
-    public void drawSelectedWhiteboard() {
-        drawArea.clear();
-        if (selectedBoard != null) {
-            selectedBoard.draw(drawArea);
-        }
-    }
-
-    /**
-     * Setup the Swing components and start the Swing thread, given the
-     * peer's specific information, i.e. peer:port string.
-     */
-    public void show(String peerport) {
-        // create main frame
-        JFrame frame = new JFrame("Whiteboard Peer: " + peerport);
-        Container content = frame.getContentPane();
-        // set layout on content pane
-        content.setLayout(new BorderLayout());
-        // create draw area
-        drawArea = new DrawArea(this);
-
-        // add to content pane
-        content.add(drawArea, BorderLayout.CENTER);
-
-        // create controls to apply colors and call clear feature
-        JPanel controls = new JPanel();
-        controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
-
-        /**
-         * Action listener is called by the GUI thread.
-         */
-        ActionListener actionListener = new ActionListener() {
-
-            public void actionPerformed(ActionEvent e) {
-                if (e.getSource() == clearBtn) {
-                    clearedLocally();
-                } else if (e.getSource() == blackBtn) {
-                    drawArea.setColor(Color.black);
-                } else if (e.getSource() == redBtn) {
-                    drawArea.setColor(Color.red);
-                } else if (e.getSource() == boardComboBox) {
-                    if (modifyingComboBox) return;
-                    if (boardComboBox.getSelectedIndex() == -1) return;
-                    String selectedBoardName = (String) boardComboBox.getSelectedItem();
-                    if (whiteboards.get(selectedBoardName) == null) {
-                        log.severe("selected a board that does not exist: " + selectedBoardName);
-                        return;
-                    }
-                    selectedBoard = whiteboards.get(selectedBoardName);
-                    // remote boards can't have their shared status modified
-                    if (selectedBoard.isRemote()) {
-                        sharedCheckbox.setEnabled(false);
-                        sharedCheckbox.setVisible(false);
-                    } else {
-                        modifyingCheckBox = true;
-                        sharedCheckbox.setSelected(selectedBoard.isShared());
-                        modifyingCheckBox = false;
-                        sharedCheckbox.setEnabled(true);
-                        sharedCheckbox.setVisible(true);
-                    }
-                    selectedABoard();
-                } else if (e.getSource() == createBoardBtn) {
-                    createBoard();
-                } else if (e.getSource() == undoBtn) {
-                    if (selectedBoard == null) {
-                        log.severe("there is no selected board to undo");
-                        return;
-                    }
-                    undoLocally();
-                } else if (e.getSource() == deleteBoardBtn) {
-                    if (selectedBoard == null) {
-                        log.severe("there is no selected board to delete");
-                        return;
-                    }
-                    deleteBoard(selectedBoard.getName());
-                }
-            }
-        };
-
-        clearBtn = new JButton("Clear Board");
-        clearBtn.addActionListener(actionListener);
-        clearBtn.setToolTipText("Clear the current board - clears remote copies as well");
-        clearBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        blackBtn = new JButton("Black");
-        blackBtn.addActionListener(actionListener);
-        blackBtn.setToolTipText("Draw with black pen");
-        blackBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        redBtn = new JButton("Red");
-        redBtn.addActionListener(actionListener);
-        redBtn.setToolTipText("Draw with red pen");
-        redBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        deleteBoardBtn = new JButton("Delete Board");
-        deleteBoardBtn.addActionListener(actionListener);
-        deleteBoardBtn.setToolTipText("Delete the current board - only deletes the board locally");
-        deleteBoardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        createBoardBtn = new JButton("New Board");
-        createBoardBtn.addActionListener(actionListener);
-        createBoardBtn.setToolTipText("Create a new board - creates it locally and not shared by default");
-        createBoardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        undoBtn = new JButton("Undo");
-        undoBtn.addActionListener(actionListener);
-        undoBtn.setToolTipText("Remove the last path drawn on the board - triggers an undo on remote copies as well");
-        undoBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        sharedCheckbox = new JCheckBox("Shared");
-        sharedCheckbox.addItemListener(new ItemListener() {
-            public void itemStateChanged(ItemEvent e) {
-                if (!modifyingCheckBox) setShare(e.getStateChange() == 1);
-            }
-        });
-        sharedCheckbox.setToolTipText("Toggle whether the board is shared or not - tells the whiteboard server");
-        sharedCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+		pmanager.shutdown();
+		// Utils.getInstance().cleanUp();
+		//System.exit(0);
+	}
 
 
-        // create a drop list for boards to select from
-        JPanel controlsNorth = new JPanel();
-        boardComboBox = new JComboBox<String>();
-        boardComboBox.addActionListener(actionListener);
+	/******
+	 *
+	 * GUI methods and callbacks from GUI for user actions.
+	 * You probably do not need to modify anything below here.
+	 *
+	 ******/
+
+	/**
+	 * Redraw the screen with the selected board
+	 */
+	public void drawSelectedWhiteboard() {
+		drawArea.clear();
+		if (selectedBoard != null) {
+			selectedBoard.draw(drawArea);
+		}
+	}
+
+	/**
+	 * Setup the Swing components and start the Swing thread, given the
+	 * peer's specific information, i.e. peer:port string.
+	 */
+	public void show(String peerport) {
+		// create main frame
+		JFrame frame = new JFrame("Whiteboard Peer: " + peerport);
+		Container content = frame.getContentPane();
+		// set layout on content pane
+		content.setLayout(new BorderLayout());
+		// create draw area
+		drawArea = new DrawArea(this);
+
+		// add to content pane
+		content.add(drawArea, BorderLayout.CENTER);
+
+		// create controls to apply colors and call clear feature
+		JPanel controls = new JPanel();
+		controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
+
+		/**
+		 * Action listener is called by the GUI thread.
+		 */
+		ActionListener actionListener = new ActionListener() {
+
+			public void actionPerformed(ActionEvent e) {
+				if (e.getSource() == clearBtn) {
+					clearedLocally();
+				} else if (e.getSource() == blackBtn) {
+					drawArea.setColor(Color.black);
+				} else if (e.getSource() == redBtn) {
+					drawArea.setColor(Color.red);
+				} else if (e.getSource() == boardComboBox) {
+					if (modifyingComboBox) return;
+					if (boardComboBox.getSelectedIndex() == -1) return;
+					String selectedBoardName = (String) boardComboBox.getSelectedItem();
+					if (whiteboards.get(selectedBoardName) == null) {
+						log.severe("selected a board that does not exist: " + selectedBoardName);
+						return;
+					}
+					selectedBoard = whiteboards.get(selectedBoardName);
+					// remote boards can't have their shared status modified
+					if (selectedBoard.isRemote()) {
+						sharedCheckbox.setEnabled(false);
+						sharedCheckbox.setVisible(false);
+					} else {
+						modifyingCheckBox = true;
+						sharedCheckbox.setSelected(selectedBoard.isShared());
+						modifyingCheckBox = false;
+						sharedCheckbox.setEnabled(true);
+						sharedCheckbox.setVisible(true);
+					}
+					selectedABoard();
+				} else if (e.getSource() == createBoardBtn) {
+					createBoard();
+				} else if (e.getSource() == undoBtn) {
+					if (selectedBoard == null) {
+						log.severe("there is no selected board to undo");
+						return;
+					}
+					undoLocally();
+				} else if (e.getSource() == deleteBoardBtn) {
+					if (selectedBoard == null) {
+						log.severe("there is no selected board to delete");
+						return;
+					}
+					deleteBoard(selectedBoard.getName());
+				}
+			}
+		};
+
+		clearBtn = new JButton("Clear Board");
+		clearBtn.addActionListener(actionListener);
+		clearBtn.setToolTipText("Clear the current board - clears remote copies as well");
+		clearBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		blackBtn = new JButton("Black");
+		blackBtn.addActionListener(actionListener);
+		blackBtn.setToolTipText("Draw with black pen");
+		blackBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		redBtn = new JButton("Red");
+		redBtn.addActionListener(actionListener);
+		redBtn.setToolTipText("Draw with red pen");
+		redBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		deleteBoardBtn = new JButton("Delete Board");
+		deleteBoardBtn.addActionListener(actionListener);
+		deleteBoardBtn.setToolTipText("Delete the current board - only deletes the board locally");
+		deleteBoardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		createBoardBtn = new JButton("New Board");
+		createBoardBtn.addActionListener(actionListener);
+		createBoardBtn.setToolTipText("Create a new board - creates it locally and not shared by default");
+		createBoardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		undoBtn = new JButton("Undo");
+		undoBtn.addActionListener(actionListener);
+		undoBtn.setToolTipText("Remove the last path drawn on the board - triggers an undo on remote copies as well");
+		undoBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		sharedCheckbox = new JCheckBox("Shared");
+		sharedCheckbox.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				if (!modifyingCheckBox) setShare(e.getStateChange() == 1);
+			}
+		});
+		sharedCheckbox.setToolTipText("Toggle whether the board is shared or not - tells the whiteboard server");
+		sharedCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
 
 
-        // add to panel
-        controlsNorth.add(boardComboBox);
-        controls.add(sharedCheckbox);
-        controls.add(createBoardBtn);
-        controls.add(deleteBoardBtn);
-        controls.add(blackBtn);
-        controls.add(redBtn);
-        controls.add(undoBtn);
-        controls.add(clearBtn);
+		// create a drop list for boards to select from
+		JPanel controlsNorth = new JPanel();
+		boardComboBox = new JComboBox<String>();
+		boardComboBox.addActionListener(actionListener);
 
-        // add to content pane
-        content.add(controls, BorderLayout.WEST);
-        content.add(controlsNorth, BorderLayout.NORTH);
 
-        frame.setSize(600, 600);
+		// add to panel
+		controlsNorth.add(boardComboBox);
+		controls.add(sharedCheckbox);
+		controls.add(createBoardBtn);
+		controls.add(deleteBoardBtn);
+		controls.add(blackBtn);
+		controls.add(redBtn);
+		controls.add(undoBtn);
+		controls.add(clearBtn);
 
-        // create an initial board
-        createBoard();
+		// add to content pane
+		content.add(controls, BorderLayout.WEST);
+		content.add(controlsNorth, BorderLayout.NORTH);
 
-        // closing the application
-        frame.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent windowEvent) {
-                if (JOptionPane.showConfirmDialog(frame,
-                        "Are you sure you want to close this window?", "Close Window?",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
-                    guiShutdown();
-                    frame.dispose();
-                }
-            }
-        });
+		frame.setSize(600, 600);
 
-        // show the swing paint result
-        frame.setVisible(true);
+		// create an initial board
+		createBoard();
 
-    }
+		// closing the application
+		frame.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent windowEvent) {
+				if (JOptionPane.showConfirmDialog(frame,
+						"Are you sure you want to close this window?", "Close Window?",
+						JOptionPane.YES_NO_OPTION,
+						JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+					guiShutdown();
+					frame.dispose();
+				}
+			}
+		});
 
-    /**
-     * Update the GUI's list of boards. Note that this method needs to update data
-     * that the GUI is using, which should only be done on the GUI's thread, which
-     * is why invoke later is used.
-     *
-     * @param select, board to select when list is modified or null for default
-     *                selection
-     */
-    private void updateComboBox(String select) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                modifyingComboBox = true;
-                boardComboBox.removeAllItems();
-                int anIndex = -1;
-                synchronized (whiteboards) {
-                    ArrayList<String> boards = new ArrayList<String>(whiteboards.keySet());
-                    Collections.sort(boards);
-                    for (int i = 0; i < boards.size(); i++) {
-                        String boardname = boards.get(i);
-                        boardComboBox.addItem(boardname);
-                        if (select != null && select.equals(boardname)) {
-                            anIndex = i;
-                        } else if (anIndex == -1 && selectedBoard != null &&
-                                selectedBoard.getName().equals(boardname)) {
-                            anIndex = i;
-                        }
-                    }
-                }
-                modifyingComboBox = false;
-                if (anIndex != -1) {
-                    boardComboBox.setSelectedIndex(anIndex);
-                } else {
-                    if (whiteboards.size() > 0) {
-                        boardComboBox.setSelectedIndex(0);
-                    } else {
-                        drawArea.clear();
-                        createBoard();
-                    }
-                }
+		// show the swing paint result
+		frame.setVisible(true);
 
-            }
-        });
-    }
+	}
+
+	/**
+	 * Update the GUI's list of boards. Note that this method needs to update data
+	 * that the GUI is using, which should only be done on the GUI's thread, which
+	 * is why invoke later is used.
+	 *
+	 * @param select, board to select when list is modified or null for default
+	 *                selection
+	 */
+	private void updateComboBox(String select) {
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				modifyingComboBox = true;
+				boardComboBox.removeAllItems();
+				int anIndex = -1;
+				synchronized (whiteboards) {
+					ArrayList<String> boards = new ArrayList<String>(whiteboards.keySet());
+					Collections.sort(boards);
+					for (int i = 0; i < boards.size(); i++) {
+						String boardname = boards.get(i);
+						boardComboBox.addItem(boardname);
+						if (select != null && select.equals(boardname)) {
+							anIndex = i;
+						} else if (anIndex == -1 && selectedBoard != null &&
+								selectedBoard.getName().equals(boardname)) {
+							anIndex = i;
+						}
+					}
+				}
+				modifyingComboBox = false;
+				if (anIndex != -1) {
+					boardComboBox.setSelectedIndex(anIndex);
+				} else {
+					if (whiteboards.size() > 0) {
+						boardComboBox.setSelectedIndex(0);
+					} else {
+						drawArea.clear();
+						createBoard();
+					}
+				}
+
+			}
+		});
+	}
 
 }
