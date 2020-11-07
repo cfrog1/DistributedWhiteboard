@@ -5,7 +5,6 @@ import pb.managers.ClientManager;
 import pb.managers.PeerManager;
 import pb.managers.ServerManager;
 import pb.managers.endpoint.Endpoint;
-import pb.utils.Utils;
 
 import javax.swing.*;
 import java.awt.*;
@@ -13,7 +12,6 @@ import java.awt.event.*;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.*;
-import java.util.List;
 import java.util.logging.Logger;
 
 
@@ -179,9 +177,9 @@ public class WhiteboardApp {
 	 * Initialize the white board app.
 	 */
 
-	Endpoint wbendpoint;
-	PeerManager pmanager;
-	ClientManager climanager;
+	Endpoint theWhiteBoardEndpoint;
+	PeerManager thePeerManager;
+	ClientManager theClientManager;
 
 	//TODO: make sure that all peerStarted events also have peerStopped, peerError etc.
 	public WhiteboardApp(int peerPort, String whiteboardServerHost,
@@ -196,11 +194,11 @@ public class WhiteboardApp {
 		//Connect to server
 		try {
 			ClientManager clientManager = peerManager.connect(whiteboardServerPort, whiteboardServerHost);
-			climanager = clientManager;
+			theClientManager = clientManager;
 			clientManager.on(PeerManager.peerStarted, (args) -> {
 				Endpoint endpoint = (Endpoint)args[0];
 
-				wbendpoint = endpoint;
+				theWhiteBoardEndpoint = endpoint;
 
 				shareToggleEmit(endpoint); //Set up events for when 'shared' is checked on a local whiteboard
 				log.info("Connected to server");
@@ -269,12 +267,10 @@ public class WhiteboardApp {
 									}
 								}).on(boardDeleted, (args7) -> {
 									// we need to remove the board from selection
-									System.out.println("Recieved Board Deleted");
 									String deleteUpdate = (String) args7[0];
 									log.info("Received new undo update from board owner: " + deleteUpdate);
 									deleteBoard(getBoardName(deleteUpdate));
-
-									clientPeerManager.shutdown(); // TODO: Just added (Connors suggestion)
+									clientPeerManager.shutdown();
 								});
 
 								peer.emit(getBoardData, board);
@@ -282,17 +278,9 @@ public class WhiteboardApp {
 
 							}).on(PeerManager.peerStopped, (args3) -> {
 								Endpoint peer = (Endpoint)args3[0];
-								System.out.println("PEER STOPPED CALLED!!!!");
 								log.info("Peer stopped with board owner: "+peer.getOtherEndpointId());
 								whiteboards.remove(board);
-								//boardEndpoints.remove(peer);
-								//boardServerEndpoints.remove(peer);
-								//peer.close(); //TODO:
-								//clientPeerManager.emit(PeerManager.peerStopped, peer);
 								clientManager.sessionStopped(peer);
-								//Endpoint endpoint = (Endpoint)args3[0];
-
-
 							}).on(PeerManager.peerError, (args3) -> {
 								Endpoint peer = (Endpoint)args3[0];
 								log.severe("Peer error with board owner: "+peer.getOtherEndpointId());
@@ -300,7 +288,6 @@ public class WhiteboardApp {
 							});
 
 							clientPeerManager.start();
-
 							//clientPeerManager.join();
 
 						} catch (UnknownHostException e) {
@@ -313,22 +300,8 @@ public class WhiteboardApp {
 					}
 					//When an unsharingBoard event is received, remove it from out list of boards
 				}).on(WhiteboardServer.unsharingBoard, (args3 -> {
-					System.out.println("Getting Unshared - Remove from list");
 					String board = (String) args3[0];
 					log.info("Board owner no longer sharing board: "+board);
-
-					//********************
-					// TODO: Section added to test
-					Endpoint peer = boardServerEndpoints.get(board);
-
-					// no longer need to track the board as a board that we listen to
-					//boardServerEndpoints.remove(boardname);
-					//peer.emit(unlistenBoard, boardname);
-					//log.info("Sending unlisten board to board owner");
-
-
-					//********************************
-
 					synchronized (whiteboards) {
 						if (whiteboards.containsKey(board)) {
 							Whiteboard whiteboard = whiteboards.get(board);
@@ -347,7 +320,7 @@ public class WhiteboardApp {
 				log.severe("Peer error with wb server: "+endpoint.getOtherEndpointId());
 			});
 
-			pmanager = peerManager;
+			thePeerManager = peerManager;
 			//The whiteboard's server events
 			peerManager.on(PeerManager.peerServerManager, (args) -> {
 				ServerManager serverManager = (ServerManager)args[0];
@@ -612,9 +585,6 @@ public class WhiteboardApp {
 					boardServerEndpoints.remove(boardname);
 					peer.emit(unlistenBoard, boardname);
 					log.info("Sending unlisten board to board owner");
-
-					//climanager.sessionStopped(peer); //ADDED TODO
-					//peer.close();////******* TODO:
 				}
 				whiteboards.remove(boardname);
 			}
@@ -759,35 +729,14 @@ public class WhiteboardApp {
 	 * Called by the gui when the user closes the app.
 	 */
 	public void guiShutdown() {
-		// do some final cleanup
 		HashSet<Whiteboard> existingBoards = new HashSet<>(whiteboards.values());
-
 		existingBoards.forEach((board) -> {
 			if (board.isShared() && !board.isRemote()){
-				Endpoint peer = boardServerEndpoints.get(board.getName());
-				wbendpoint.emit(WhiteboardServer.unshareBoard, board.getName());
-				//wbendpoint.emit(ServerManager.sessionStopped, peer);
-				//Endpoint peer = boardServerEndpoints.get(board.getName());
-				//wbendpoint.emit(ServerManager.sessionStopped, board.getName());
-				//peer.emit(PeerManager.peerStopped);
-				//climanager.sessionStopped(peer);
+				theWhiteBoardEndpoint.emit(WhiteboardServer.unshareBoard, board.getName());
 			}
 			deleteBoard(board.getName());
 		});
-		/*f (selectedBoard.isShared() && !selectedBoard.isRemote()){
-			wbendpoint.emit(WhiteboardServer.unshareBoard, selectedBoard.getName());
-			deleteBoard(selectedBoard.getName());
-		}
-        whiteboards.values().forEach((whiteboard) -> {
-        	if (whiteboard.isShared() && !whiteboard.isRemote()){
-				wbendpoint.emit(WhiteboardServer.unshareBoard, whiteboard.getName());
-			}
-			deleteBoard(whiteboard.getName());
-        });*/
-
-		pmanager.shutdown();
-		// Utils.getInstance().cleanUp();
-		//System.exit(0);
+		thePeerManager.shutdown();
 	}
 
 
